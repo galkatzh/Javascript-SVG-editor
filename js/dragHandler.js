@@ -3,6 +3,9 @@
  * Handles shape selection and drag functionality
  */
 
+// Opacity factor for hover/selection effects (multiply by this value)
+const OPACITY_FACTOR = 0.7;
+
 /**
  * Select an element and add visual feedback
  * @param {Snap.Element} element - The element to select
@@ -15,6 +18,10 @@ function selectElement(element) {
 
     // Store reference to selected element
     editorState.selectedElement = element;
+
+    // Apply opacity effect for selection
+    const originalOpacity = element.data('originalOpacity') || 1.0;
+    element.attr({ opacity: originalOpacity * OPACITY_FACTOR });
 
     // Add visual feedback
     highlightSelected(element);
@@ -38,7 +45,8 @@ function deselectElement() {
         }
 
         // Restore original opacity
-        editorState.selectedElement.attr({ opacity: 1 });
+        const originalOpacity = editorState.selectedElement.data('originalOpacity') || 1.0;
+        editorState.selectedElement.attr({ opacity: originalOpacity });
 
         editorState.selectedElement = null;
         updateStatus('Selection cleared');
@@ -89,6 +97,10 @@ function highlightSelected(element) {
  * @param {Snap.Element} element - The element to make draggable
  */
 function makeElementDraggable(element) {
+    // Store the original opacity for this element
+    const currentOpacity = element.attr('opacity');
+    element.data('originalOpacity', currentOpacity !== undefined ? currentOpacity : 1.0);
+
     // Enable drag functionality using Snap.svg .drag() method
     element.drag(
         // Move handler - called during drag
@@ -160,15 +172,17 @@ function makeElementDraggable(element) {
     // Add hover effect for select tool
     element.hover(
         function() {
-            // Mouse enter
+            // Mouse enter - multiply opacity by factor
             if (editorState.activeTool === 'select' && editorState.selectedElement !== this) {
-                this.attr({ opacity: 0.7 });
+                const originalOpacity = this.data('originalOpacity') || 1.0;
+                this.attr({ opacity: originalOpacity * OPACITY_FACTOR });
             }
         },
         function() {
-            // Mouse leave
+            // Mouse leave - restore original opacity
             if (editorState.selectedElement !== this) {
-                this.attr({ opacity: 1 });
+                const originalOpacity = this.data('originalOpacity') || 1.0;
+                this.attr({ opacity: originalOpacity });
             }
         }
     );

@@ -177,14 +177,16 @@ function updateScribble(path, points) {
  * @param {number} width - Stroke width
  * @param {string} fillColor - Fill color
  * @param {boolean} fillTransparent - Whether fill should be transparent
+ * @param {number} opacity - Shape opacity (0-1)
  * @returns {Object} Attributes object
  */
-function getDefaultAttributes(color, width, fillColor = '#ffffff', fillTransparent = false) {
+function getDefaultAttributes(color, width, fillColor = '#ffffff', fillTransparent = false, opacity = 1.0) {
     return {
         fill: fillTransparent ? 'none' : fillColor,
         stroke: color,
         strokeWidth: width,
         strokeLinecap: 'round',
-        strokeLinejoin: 'round'
+        strokeLinejoin: 'round',
+        opacity: opacity
     };
 }
