@@ -120,46 +120,128 @@ function parseSVGContent(svgContent, snapInstance, onSuccess, onError) {
 }
 
 /**
- * Export the current canvas as an SVG file
+ * Export the current canvas as an SVG file with file save dialog
+ * Uses File System Access API when available, falls back to prompt dialog
+ * @param {Snap} snapInstance - The Snap.svg instance
+ * @returns {Promise<boolean>} Promise that resolves to true on success
+ */
+async function exportSVGWithDialog(snapInstance) {
+    try {
+        // Get the SVG string
+        const svgString = prepareSVGForExport(snapInstance);
+
+        // Check if the File System Access API is supported
+        if ('showSaveFilePicker' in window) {
+            try {
+                // Show save file picker dialog
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: getExportFilename(),
+                    types: [{
+                        description: 'SVG Files',
+                        accept: { 'image/svg+xml': ['.svg'] }
+                    }]
+                });
+
+                // Create a writable stream
+                const writable = await handle.createWritable();
+
+                // Write the SVG content
+                await writable.write(svgString);
+
+                // Close the file
+                await writable.close();
+
+                return { success: true, filename: handle.name };
+            } catch (error) {
+                // User cancelled or error occurred
+                if (error.name === 'AbortError') {
+                    return { success: false, cancelled: true };
+                }
+                throw error;
+            }
+        } else {
+            // Fallback: Use prompt to get custom filename
+            const defaultFilename = getExportFilename();
+            const userFilename = prompt('Enter filename for your SVG:', defaultFilename);
+
+            if (!userFilename) {
+                return { success: false, cancelled: true };
+            }
+
+            // Ensure .svg extension
+            const filename = userFilename.endsWith('.svg') ? userFilename : userFilename + '.svg';
+
+            // Use the legacy download method
+            downloadSVG(svgString, filename);
+
+            return { success: true, filename: filename };
+        }
+    } catch (error) {
+        console.error('Error exporting SVG:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Prepare SVG content for export
+ * @param {Snap} snapInstance - The Snap.svg instance
+ * @returns {string} The formatted SVG string
+ */
+function prepareSVGForExport(snapInstance) {
+    // Get the SVG element
+    const svgElement = snapInstance.node;
+
+    // Clone the SVG to avoid modifying the original
+    const svgClone = svgElement.cloneNode(true);
+
+    // Clean up any selection boxes or temporary elements
+    const selectionBoxes = svgClone.querySelectorAll('.selection-box');
+    selectionBoxes.forEach(box => box.remove());
+
+    // Get the SVG string
+    const serializer = new XMLSerializer();
+    let svgString = serializer.serializeToString(svgClone);
+
+    // Add XML declaration and proper formatting
+    svgString = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' + svgString;
+
+    return svgString;
+}
+
+/**
+ * Download SVG using legacy blob method
+ * @param {string} svgString - The SVG content as string
+ * @param {string} filename - The filename for download
+ */
+function downloadSVG(svgString, filename) {
+    // Create a blob from the SVG string
+    const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+
+    // Create a download link and trigger download
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+
+    // Trigger the download
+    document.body.appendChild(link);
+    link.click();
+
+    // Clean up
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
+/**
+ * Export the current canvas as an SVG file (legacy method)
  * @param {Snap} snapInstance - The Snap.svg instance
  * @param {string} filename - The filename for the exported SVG (default: 'drawing.svg')
+ * @returns {boolean} true on success
  */
 function exportSVG(snapInstance, filename = 'drawing.svg') {
     try {
-        // Get the SVG element
-        const svgElement = snapInstance.node;
-
-        // Clone the SVG to avoid modifying the original
-        const svgClone = svgElement.cloneNode(true);
-
-        // Clean up any selection boxes or temporary elements
-        const selectionBoxes = svgClone.querySelectorAll('.selection-box');
-        selectionBoxes.forEach(box => box.remove());
-
-        // Get the SVG string
-        const serializer = new XMLSerializer();
-        let svgString = serializer.serializeToString(svgClone);
-
-        // Add XML declaration and proper formatting
-        svgString = '<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n' + svgString;
-
-        // Create a blob from the SVG string
-        const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-
-        // Create a download link and trigger download
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-
-        // Trigger the download
-        document.body.appendChild(link);
-        link.click();
-
-        // Clean up
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-
+        const svgString = prepareSVGForExport(snapInstance);
+        downloadSVG(svgString, filename);
         return true;
     } catch (error) {
         console.error('Error exporting SVG:', error);

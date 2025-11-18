@@ -135,6 +135,13 @@ header h1 {
     border-color: #3498db;
 }
 
+.property input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: #3498db;
+}
+
 /* File Buttons */
 .file-buttons {
     display: flex;
