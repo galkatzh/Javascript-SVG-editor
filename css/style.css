@@ -222,6 +222,17 @@ header h1 {
     pointer-events: none;
 }
 
+/* SVG Elements Cursor - default for drawing tools */
+#svg-canvas line,
+#svg-canvas circle,
+#svg-canvas rect,
+#svg-canvas path,
+#svg-canvas polyline,
+#svg-canvas polygon,
+#svg-canvas ellipse {
+    cursor: crosshair;
+}
+
 /* SVG Elements Cursor - only show pointer for select tool */
 #svg-canvas.cursor-select line,
 #svg-canvas.cursor-select circle,
