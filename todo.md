@@ -138,3 +138,62 @@
 - Edge case handling: no dragging during drawing, proper tool state checks
 
 **Phase 3 Complete!** Ready to proceed to Phase 4: Import and Delete
+
+---
+
+# Phase 4 Implementation Checklist
+
+## SVG Import and Export Features
+
+- [x] Create js/fileHandler.js module for file operations
+- [x] Implement SVG file import functionality
+  - [x] Read SVG file using FileReader API
+  - [x] Parse SVG content
+  - [x] Load SVG elements into canvas
+  - [x] Make imported elements selectable and draggable
+  - [x] Handle import errors gracefully
+- [x] Implement SVG export/download functionality
+  - [x] Create export button in UI
+  - [x] Extract current SVG content
+  - [x] Generate downloadable SVG file
+  - [x] Set proper filename and content type
+- [x] Integrate fileHandler.js into app.js
+- [x] Update handleFileImport to use new import functionality
+- [x] Test importing simple SVG files
+- [x] Test importing complex SVG files with multiple elements
+- [x] Test exporting canvas to SVG file
+- [x] Test round-trip (import → edit → export)
+- [x] Add user feedback for import/export operations
+
+**Deliverable:** Full SVG file import and export capabilities ✅
+
+## Implementation Summary
+
+### fileHandler.js Module
+- ✅ `importSVG()` - Import SVG files using FileReader API
+- ✅ `parseSVGContent()` - Parse and load SVG elements into canvas
+- ✅ `exportSVG()` - Export current canvas as downloadable SVG file
+- ✅ `getExportFilename()` - Generate timestamped filenames for exports
+
+### HTML Updates
+- ✅ Added Export SVG button to toolbar (line 65-67)
+- ✅ Added fileHandler.js script reference (line 90)
+
+### app.js Integration
+- ✅ Added export button event listener in `setupToolbar()`
+- ✅ Updated `handleFileImport()` to use `importSVG()` function
+- ✅ Added `handleFileExport()` function for SVG downloads
+- ✅ Success and error callbacks with user feedback
+- ✅ File input cleared after import for repeat imports
+
+### Features
+- Import SVG files and load all drawable elements (line, circle, rect, path, etc.)
+- Imported elements automatically made selectable and draggable
+- Export current canvas to downloadable SVG file with timestamp
+- Error handling for invalid files and parsing errors
+- User feedback via status bar and alerts
+- Support for multiple element types (shapes, paths, groups)
+- Clean export (removes selection boxes and temporary elements)
+- Test SVG file created for validation
+
+**Phase 4 Complete!** SVG editor now has full import/export capabilities.
