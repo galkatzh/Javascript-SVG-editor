@@ -139,6 +139,11 @@ function makeElementDraggable(element) {
                 return;
             }
 
+            // Select element if not already selected (enables drag-on-click)
+            if (editorState.selectedElement !== this) {
+                selectElement(this);
+            }
+
             // Store the original transform
             this.data('origTransform', this.transform().local);
         },
