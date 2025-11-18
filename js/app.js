@@ -11,6 +11,8 @@ const editorState = {
     fillColor: '#ffffff',           // Current fill color
     fillTransparent: false,         // Transparent fill flag
     shapeOpacity: 1.0,              // Shape opacity (0-1)
+    customWidth: null,              // Custom canvas width (null = auto)
+    customHeight: null,             // Custom canvas height (null = auto)
     selectedElement: null,          // Currently selected shape
     isDrawing: false,               // Drawing state flag
     startPoint: { x: 0, y: 0 },    // Start point for drawing
@@ -46,15 +48,20 @@ function init() {
 }
 
 /**
- * Resize SVG canvas to match container
+ * Resize SVG canvas to match container or custom dimensions
  */
 function resizeSVGCanvas() {
     const container = document.getElementById('canvas-container');
     const rect = container.getBoundingClientRect();
+
+    // Use custom dimensions if set, otherwise use container dimensions
+    const width = editorState.customWidth || rect.width;
+    const height = editorState.customHeight || rect.height;
+
     snap.attr({
-        width: rect.width,
-        height: rect.height,
-        viewBox: `0 0 ${rect.width} ${rect.height}`
+        width: width,
+        height: height,
+        viewBox: `0 0 ${width} ${height}`
     });
 }
 
@@ -113,6 +120,32 @@ function setupToolbar() {
         editorState.shapeOpacity = percent / 100;
         opacityValue.textContent = percent;
         updateStatus(`Opacity set to ${percent}%`);
+    });
+
+    // Canvas width input
+    const canvasWidthInput = document.getElementById('canvas-width');
+    canvasWidthInput.addEventListener('change', (e) => {
+        const value = e.target.value;
+        editorState.customWidth = value ? parseInt(value) : null;
+        resizeSVGCanvas();
+        if (value) {
+            updateStatus(`Canvas width set to ${value}px`);
+        } else {
+            updateStatus('Canvas width set to auto');
+        }
+    });
+
+    // Canvas height input
+    const canvasHeightInput = document.getElementById('canvas-height');
+    canvasHeightInput.addEventListener('change', (e) => {
+        const value = e.target.value;
+        editorState.customHeight = value ? parseInt(value) : null;
+        resizeSVGCanvas();
+        if (value) {
+            updateStatus(`Canvas height set to ${value}px`);
+        } else {
+            updateStatus('Canvas height set to auto');
+        }
     });
 
     // Import SVG button
