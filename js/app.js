@@ -89,6 +89,10 @@ function setupToolbar() {
 
     fileInput.addEventListener('change', handleFileImport);
 
+    // Export SVG button
+    const exportBtn = document.getElementById('export-svg');
+    exportBtn.addEventListener('click', handleFileExport);
+
     // Clear canvas button
     const clearBtn = document.getElementById('clear-canvas');
     clearBtn.addEventListener('click', handleClearCanvas);
@@ -323,8 +327,43 @@ function handleFileImport(e) {
     console.log('Importing file:', file.name);
     updateStatus(`Importing ${file.name}...`);
 
-    // File import will be implemented in Phase 4
-    updateStatus('File import feature coming soon!');
+    // Use fileHandler module to import SVG
+    importSVG(
+        file,
+        snap,
+        (count) => {
+            // Success callback
+            updateStatus(`Successfully imported ${count} element(s) from ${file.name}`);
+            console.log(`Imported ${count} elements`);
+        },
+        (errorMessage) => {
+            // Error callback
+            updateStatus(`Import failed: ${errorMessage}`);
+            console.error('Import error:', errorMessage);
+            alert(`Import failed: ${errorMessage}`);
+        }
+    );
+
+    // Clear the file input so the same file can be imported again
+    e.target.value = '';
+}
+
+/**
+ * Handle file export
+ */
+function handleFileExport() {
+    updateStatus('Exporting SVG...');
+
+    const filename = getExportFilename();
+    const success = exportSVG(snap, filename);
+
+    if (success) {
+        updateStatus(`SVG exported as ${filename}`);
+        console.log('Export successful');
+    } else {
+        updateStatus('Export failed - see console for details');
+        alert('Failed to export SVG. Please try again.');
+    }
 }
 
 /**
