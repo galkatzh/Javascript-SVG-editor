@@ -222,14 +222,14 @@ header h1 {
     pointer-events: none;
 }
 
-/* SVG Elements Hover (for select tool) */
-#svg-canvas line,
-#svg-canvas circle,
-#svg-canvas rect,
-#svg-canvas path,
-#svg-canvas polyline,
-#svg-canvas polygon,
-#svg-canvas ellipse {
+/* SVG Elements Cursor - only show pointer for select tool */
+#svg-canvas.cursor-select line,
+#svg-canvas.cursor-select circle,
+#svg-canvas.cursor-select rect,
+#svg-canvas.cursor-select path,
+#svg-canvas.cursor-select polyline,
+#svg-canvas.cursor-select polygon,
+#svg-canvas.cursor-select ellipse {
     cursor: pointer;
 }
 
