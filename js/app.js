@@ -10,6 +10,7 @@ const editorState = {
     strokeWidth: 2,                 // Current stroke width
     fillColor: '#ffffff',           // Current fill color
     fillTransparent: false,         // Transparent fill flag
+    shapeOpacity: 1.0,              // Shape opacity (0-1)
     selectedElement: null,          // Currently selected shape
     isDrawing: false,               // Drawing state flag
     startPoint: { x: 0, y: 0 },    // Start point for drawing
@@ -102,6 +103,16 @@ function setupToolbar() {
         } else {
             updateStatus(`Fill color set to ${editorState.fillColor}`);
         }
+    });
+
+    // Shape opacity slider
+    const opacitySlider = document.getElementById('shape-opacity');
+    const opacityValue = document.getElementById('opacity-value');
+    opacitySlider.addEventListener('input', (e) => {
+        const percent = parseInt(e.target.value);
+        editorState.shapeOpacity = percent / 100;
+        opacityValue.textContent = percent;
+        updateStatus(`Opacity set to ${percent}%`);
     });
 
     // Import SVG button
@@ -218,7 +229,8 @@ function handleMouseDown(e) {
         editorState.strokeColor,
         editorState.strokeWidth,
         editorState.fillColor,
-        editorState.fillTransparent
+        editorState.fillTransparent,
+        editorState.shapeOpacity
     );
 
     switch (tool) {
