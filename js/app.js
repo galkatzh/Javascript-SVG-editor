@@ -104,6 +104,7 @@ function setupCanvas() {
     canvas.addEventListener('mousemove', handleMouseMove);
     canvas.addEventListener('mouseup', handleMouseUp);
     canvas.addEventListener('mouseleave', handleMouseLeave);
+    canvas.addEventListener('click', handleCanvasClick);
 }
 
 /**
@@ -286,6 +287,12 @@ function handleMouseUp(e) {
             break;
     }
 
+    // Make the newly created shape draggable and selectable
+    if (editorState.currentShape) {
+        makeElementDraggable(editorState.currentShape);
+        editorState.currentShape.data('draggable', true);
+    }
+
     updateStatus(`${tool.charAt(0).toUpperCase() + tool.slice(1)} created`);
 
     // Reset drawing state
@@ -358,21 +365,17 @@ function getSVGCoordinates(event) {
 }
 
 /**
- * Deselect current element
- */
-function deselectElement() {
-    if (editorState.selectedElement) {
-        editorState.selectedElement.removeClass('selected');
-        editorState.selectedElement = null;
-        updateStatus('Selection cleared');
-    }
-}
-
-/**
  * Delete selected element
  */
 function deleteSelected() {
     if (editorState.selectedElement) {
+        // Remove selection box if it exists
+        const selectionBox = editorState.selectedElement.data('selectionBox');
+        if (selectionBox) {
+            selectionBox.remove();
+        }
+
+        // Remove the element
         editorState.selectedElement.remove();
         editorState.selectedElement = null;
         updateStatus('Element deleted');

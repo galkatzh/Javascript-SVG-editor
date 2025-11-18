@@ -214,8 +214,33 @@ header h1 {
 
 /* Selection Highlight */
 .selected {
-    outline: 2px dashed #3498db;
-    outline-offset: 2px;
+    filter: drop-shadow(0 0 5px rgba(52, 152, 219, 0.8));
+}
+
+/* Selection Box */
+.selection-box {
+    pointer-events: none;
+}
+
+/* SVG Elements Hover (for select tool) */
+#svg-canvas line,
+#svg-canvas circle,
+#svg-canvas rect,
+#svg-canvas path,
+#svg-canvas polyline,
+#svg-canvas polygon,
+#svg-canvas ellipse {
+    cursor: pointer;
+}
+
+#svg-canvas.cursor-delete line,
+#svg-canvas.cursor-delete circle,
+#svg-canvas.cursor-delete rect,
+#svg-canvas.cursor-delete path,
+#svg-canvas.cursor-delete polyline,
+#svg-canvas.cursor-delete polygon,
+#svg-canvas.cursor-delete ellipse {
+    cursor: not-allowed;
 }
 
 /* Responsive Design */

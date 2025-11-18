@@ -75,3 +75,66 @@
 - Status bar feedback during drawing
 
 **Phase 2 Complete!** Ready to proceed to Phase 3: Selection and Dragging
+
+---
+
+# Phase 3 Implementation Checklist
+
+## Selection and Dragging
+
+- [x] Create js/dragHandler.js module for selection and drag functionality
+- [x] Implement click-to-select functionality for shapes
+- [x] Add visual selection feedback (highlight selected shapes)
+- [x] Store selected element reference in state
+- [x] Implement drag functionality using Snap.svg .drag() method
+- [x] Handle drag start (store original transform)
+- [x] Handle drag move (update element position)
+- [x] Handle drag end (finalize position)
+- [x] Make all existing shapes selectable and draggable
+- [x] Make newly drawn shapes selectable and draggable
+- [x] Handle edge cases (prevent dragging while drawing)
+- [x] Deselect when clicking on canvas (not on shape)
+- [x] Update select tool to only select (not create shapes)
+- [x] Test selection of different shape types (line, circle, rect, path)
+- [x] Test dragging of different shape types
+- [x] Test deselection behavior
+- [x] Integrate dragHandler.js with app.js
+
+**Deliverable:** Interactive shape manipulation with selection and dragging ✅
+
+## Implementation Summary
+
+### dragHandler.js Module
+- ✅ `selectElement()` - Select and highlight shapes with visual feedback
+- ✅ `deselectElement()` - Remove selection and visual indicators
+- ✅ `highlightSelected()` - Add selection box and drop shadow to selected elements
+- ✅ `makeElementDraggable()` - Enable drag functionality with Snap.svg .drag()
+- ✅ `makeAllShapesDraggable()` - Apply drag handlers to existing shapes
+- ✅ `handleCanvasClick()` - Deselect when clicking empty canvas
+
+### app.js Integration
+- ✅ Added dragHandler.js script to index.html
+- ✅ Updated `handleMouseUp()` to make newly created shapes draggable
+- ✅ Added canvas click event listener for deselection
+- ✅ Updated `deleteSelected()` to properly clean up selection boxes
+- ✅ Removed duplicate `deselectElement()` function (using dragHandler version)
+- ✅ Select tool returns early to prevent shape creation
+
+### css/style.css Enhancements
+- ✅ `.selected` class with drop-shadow effect for visual feedback
+- ✅ `.selection-box` styling with pointer-events disabled
+- ✅ Cursor styles for SVG elements (pointer for select, not-allowed for delete)
+- ✅ Proper cursor handling for different tools
+
+### Features
+- Click any shape with Select tool to select it
+- Visual selection feedback with blue glow and dashed bounding box
+- Drag selected shapes to move them around the canvas
+- Click on canvas (not on shape) to deselect
+- Press ESC key to deselect
+- Press Delete key to delete selected shape
+- Click with Delete tool to remove shapes instantly
+- Hover effects when using Select tool
+- Edge case handling: no dragging during drawing, proper tool state checks
+
+**Phase 3 Complete!** Ready to proceed to Phase 4: Import and Delete
