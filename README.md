@@ -77,12 +77,13 @@ Javascript-SVG-editor/
 - [x] State management
 - [x] Basic event handlers
 
-### Phase 2: Drawing Tools (Coming Next)
-- [ ] Line drawing
-- [ ] Circle drawing
-- [ ] Rectangle drawing
-- [ ] Scribble/freehand drawing
-- [ ] Apply colors and widths
+### Phase 2: Drawing Tools ✅
+- [x] Line drawing with real-time preview
+- [x] Circle drawing with real-time preview
+- [x] Rectangle drawing with real-time preview
+- [x] Scribble/freehand drawing with smooth curves
+- [x] Apply colors and widths to all shapes
+- [x] shapes.js module with all drawing functions
 
 ### Phase 3: Selection and Dragging
 - [ ] Click-to-select

@@ -170,9 +170,44 @@ function updateCursor() {
 function handleMouseDown(e) {
     const point = getSVGCoordinates(e);
     editorState.startPoint = point;
+
+    const tool = editorState.activeTool;
+
+    // Handle different tools
+    if (tool === 'select' || tool === 'delete') {
+        // Selection and deletion handled by click on elements (Phase 3)
+        return;
+    }
+
+    // Start drawing
     editorState.isDrawing = true;
 
-    console.log('Mouse down:', point, 'Tool:', editorState.activeTool);
+    const attrs = getDefaultAttributes(editorState.strokeColor, editorState.strokeWidth);
+
+    switch (tool) {
+        case 'line':
+            // Create initial line
+            editorState.currentShape = drawLine(snap, point, point, attrs);
+            break;
+
+        case 'circle':
+            // Create initial circle with radius 0
+            editorState.currentShape = drawCircle(snap, point, 0, attrs);
+            break;
+
+        case 'rect':
+            // Create initial rectangle with 0 dimensions
+            editorState.currentShape = drawRect(snap, point, point, attrs);
+            break;
+
+        case 'scribble':
+            // Start scribble path
+            editorState.scribblePoints = [point];
+            editorState.currentShape = drawScribble(snap, editorState.scribblePoints, attrs);
+            break;
+    }
+
+    updateStatus(`Drawing ${tool}...`);
 }
 
 /**
@@ -184,8 +219,37 @@ function handleMouseMove(e) {
     // Update cursor position in status bar
     updateCursorPosition(point);
 
-    if (editorState.isDrawing) {
-        console.log('Drawing:', point);
+    if (!editorState.isDrawing) return;
+
+    const tool = editorState.activeTool;
+
+    switch (tool) {
+        case 'line':
+            if (editorState.currentShape) {
+                updateLine(editorState.currentShape, point);
+            }
+            break;
+
+        case 'circle':
+            if (editorState.currentShape) {
+                const radius = calculateDistance(editorState.startPoint, point);
+                updateCircle(editorState.currentShape, radius);
+            }
+            break;
+
+        case 'rect':
+            if (editorState.currentShape) {
+                updateRect(editorState.currentShape, editorState.startPoint, point);
+            }
+            break;
+
+        case 'scribble':
+            if (editorState.currentShape) {
+                // Add point to scribble path (throttle points for performance)
+                editorState.scribblePoints.push(point);
+                updateScribble(editorState.currentShape, editorState.scribblePoints);
+            }
+            break;
     }
 }
 
@@ -193,14 +257,41 @@ function handleMouseMove(e) {
  * Handle mouse up on canvas
  */
 function handleMouseUp(e) {
-    if (editorState.isDrawing) {
-        const point = getSVGCoordinates(e);
-        console.log('Mouse up:', point);
+    if (!editorState.isDrawing) return;
 
-        editorState.isDrawing = false;
-        editorState.currentShape = null;
-        editorState.scribblePoints = [];
+    const point = getSVGCoordinates(e);
+    const tool = editorState.activeTool;
+
+    // Finalize the shape
+    switch (tool) {
+        case 'line':
+            updateLine(editorState.currentShape, point);
+            break;
+
+        case 'circle':
+            const radius = calculateDistance(editorState.startPoint, point);
+            updateCircle(editorState.currentShape, radius);
+            break;
+
+        case 'rect':
+            updateRect(editorState.currentShape, editorState.startPoint, point);
+            break;
+
+        case 'scribble':
+            // Final update to scribble
+            if (editorState.scribblePoints.length > 0) {
+                editorState.scribblePoints.push(point);
+                updateScribble(editorState.currentShape, editorState.scribblePoints);
+            }
+            break;
     }
+
+    updateStatus(`${tool.charAt(0).toUpperCase() + tool.slice(1)} created`);
+
+    // Reset drawing state
+    editorState.isDrawing = false;
+    editorState.currentShape = null;
+    editorState.scribblePoints = [];
 }
 
 /**
@@ -310,13 +401,10 @@ function updateCursorPosition(point) {
 
 /**
  * Get current drawing attributes
+ * Note: This is a wrapper that delegates to shapes.js
  */
 function getDrawingAttributes() {
-    return {
-        fill: 'none',
-        stroke: editorState.strokeColor,
-        strokeWidth: editorState.strokeWidth
-    };
+    return getDefaultAttributes(editorState.strokeColor, editorState.strokeWidth);
 }
 
 // Initialize when DOM is ready
