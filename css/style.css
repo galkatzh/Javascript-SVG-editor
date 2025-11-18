@@ -1,0 +1,235 @@
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f5f5f5;
+    color: #333;
+    overflow: hidden;
+}
+
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+/* Header */
+header {
+    background-color: #2c3e50;
+    color: white;
+    padding: 15px 20px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+header h1 {
+    font-size: 24px;
+    font-weight: 600;
+}
+
+/* Toolbar */
+#toolbar {
+    background-color: #34495e;
+    color: white;
+    padding: 15px 20px;
+    display: flex;
+    gap: 30px;
+    flex-wrap: wrap;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.toolbar-section {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toolbar-section h3 {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #95a5a6;
+    font-weight: 600;
+    margin-bottom: 5px;
+}
+
+/* Tool Buttons */
+.tool-buttons {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tool-btn {
+    background-color: #2c3e50;
+    color: white;
+    border: 2px solid #4a5f7f;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.tool-btn span {
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.tool-btn:hover {
+    background-color: #3d5a7f;
+    border-color: #5a7aa5;
+}
+
+.tool-btn.active {
+    background-color: #3498db;
+    border-color: #2980b9;
+    box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+}
+
+/* Properties */
+.properties {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.property {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.property label {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.property input[type="color"] {
+    width: 50px;
+    height: 35px;
+    border: 2px solid #4a5f7f;
+    border-radius: 5px;
+    cursor: pointer;
+    background-color: transparent;
+}
+
+.property input[type="number"] {
+    width: 70px;
+    padding: 6px 8px;
+    border: 2px solid #4a5f7f;
+    border-radius: 5px;
+    background-color: #2c3e50;
+    color: white;
+    font-size: 14px;
+}
+
+.property input[type="number"]:focus {
+    outline: none;
+    border-color: #3498db;
+}
+
+/* File Buttons */
+.file-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.action-btn {
+    background-color: #27ae60;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+}
+
+.action-btn:hover {
+    background-color: #229954;
+}
+
+.action-btn.danger {
+    background-color: #e74c3c;
+}
+
+.action-btn.danger:hover {
+    background-color: #c0392b;
+}
+
+/* Canvas Container */
+#canvas-container {
+    flex: 1;
+    background-color: white;
+    position: relative;
+    overflow: hidden;
+    border: 2px solid #ddd;
+    margin: 10px;
+    border-radius: 5px;
+}
+
+#svg-canvas {
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
+#svg-canvas.cursor-select {
+    cursor: default;
+}
+
+#svg-canvas.cursor-move {
+    cursor: move;
+}
+
+#svg-canvas.cursor-delete {
+    cursor: not-allowed;
+}
+
+/* Status Bar */
+#status-bar {
+    background-color: #2c3e50;
+    color: white;
+    padding: 8px 20px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+}
+
+#status-text {
+    font-weight: 500;
+}
+
+#cursor-position {
+    color: #95a5a6;
+}
+
+/* Selection Highlight */
+.selected {
+    outline: 2px dashed #3498db;
+    outline-offset: 2px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    #toolbar {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .tool-buttons {
+        justify-content: flex-start;
+    }
+
+    .properties {
+        flex-wrap: wrap;
+    }
+}
