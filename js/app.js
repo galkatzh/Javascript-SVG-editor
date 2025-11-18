@@ -8,6 +8,8 @@ const editorState = {
     activeTool: 'select',           // Current active tool
     strokeColor: '#000000',         // Current stroke color
     strokeWidth: 2,                 // Current stroke width
+    fillColor: '#ffffff',           // Current fill color
+    fillTransparent: false,         // Transparent fill flag
     selectedElement: null,          // Currently selected shape
     isDrawing: false,               // Drawing state flag
     startPoint: { x: 0, y: 0 },    // Start point for drawing
@@ -65,11 +67,11 @@ function setupToolbar() {
         button.addEventListener('click', handleToolChange);
     });
 
-    // Color picker
+    // Stroke color picker
     const colorPicker = document.getElementById('stroke-color');
     colorPicker.addEventListener('change', (e) => {
         editorState.strokeColor = e.target.value;
-        updateStatus(`Color changed to ${e.target.value}`);
+        updateStatus(`Stroke color changed to ${e.target.value}`);
     });
 
     // Line width
@@ -77,6 +79,29 @@ function setupToolbar() {
     widthInput.addEventListener('change', (e) => {
         editorState.strokeWidth = parseInt(e.target.value);
         updateStatus(`Line width changed to ${e.target.value}px`);
+    });
+
+    // Fill color picker
+    const fillColorPicker = document.getElementById('fill-color');
+    fillColorPicker.addEventListener('change', (e) => {
+        editorState.fillColor = e.target.value;
+        // If color is changed, uncheck transparent
+        if (editorState.fillTransparent) {
+            editorState.fillTransparent = false;
+            document.getElementById('fill-transparent').checked = false;
+        }
+        updateStatus(`Fill color changed to ${e.target.value}`);
+    });
+
+    // Fill transparent checkbox
+    const fillTransparentCheckbox = document.getElementById('fill-transparent');
+    fillTransparentCheckbox.addEventListener('change', (e) => {
+        editorState.fillTransparent = e.target.checked;
+        if (e.target.checked) {
+            updateStatus('Fill set to transparent');
+        } else {
+            updateStatus(`Fill color set to ${editorState.fillColor}`);
+        }
     });
 
     // Import SVG button
@@ -189,7 +214,12 @@ function handleMouseDown(e) {
     // Start drawing
     editorState.isDrawing = true;
 
-    const attrs = getDefaultAttributes(editorState.strokeColor, editorState.strokeWidth);
+    const attrs = getDefaultAttributes(
+        editorState.strokeColor,
+        editorState.strokeWidth,
+        editorState.fillColor,
+        editorState.fillTransparent
+    );
 
     switch (tool) {
         case 'line':
