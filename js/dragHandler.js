@@ -47,6 +47,12 @@ function deselectElement() {
  * @param {Snap.Element} element - The element to highlight
  */
 function highlightSelected(element) {
+    // Remove any existing selection box first (prevent duplicates)
+    const existingBox = element.data('selectionBox');
+    if (existingBox) {
+        existingBox.remove();
+    }
+
     // Add selected class for CSS styling
     element.addClass('selected');
 
@@ -142,12 +148,8 @@ function makeElementDraggable(element) {
                 break;
 
             case 'delete':
-                // Delete the element
-                this.remove();
-                if (editorState.selectedElement === this) {
-                    editorState.selectedElement = null;
-                }
-                updateStatus('Element deleted');
+                // Delete the element properly
+                deleteElement(this);
                 break;
         }
     });
@@ -185,6 +187,27 @@ function makeAllShapesDraggable() {
     });
 
     console.log(`Made ${children.length} shapes draggable`);
+}
+
+/**
+ * Delete an element and clean up properly
+ * @param {Snap.Element} element - The element to delete
+ */
+function deleteElement(element) {
+    // Remove selection box if it exists
+    const selectionBox = element.data('selectionBox');
+    if (selectionBox) {
+        selectionBox.remove();
+    }
+
+    // Clear selection if this element is selected
+    if (editorState.selectedElement === element) {
+        editorState.selectedElement = null;
+    }
+
+    // Delete the element
+    element.remove();
+    updateStatus('Element deleted');
 }
 
 /**
