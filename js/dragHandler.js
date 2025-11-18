@@ -37,6 +37,9 @@ function deselectElement() {
             editorState.selectedElement.data('selectionBox', null);
         }
 
+        // Restore original opacity
+        editorState.selectedElement.attr({ opacity: 1 });
+
         editorState.selectedElement = null;
         updateStatus('Selection cleared');
     }
