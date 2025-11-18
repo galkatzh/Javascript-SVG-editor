@@ -150,8 +150,11 @@ function handleToolChange(e) {
  */
 function updateCursor() {
     const canvas = document.getElementById('svg-canvas');
-    canvas.className = '';
 
+    // Remove all cursor-related classes explicitly
+    canvas.classList.remove('cursor-select', 'cursor-move', 'cursor-delete');
+
+    // Add appropriate cursor class based on active tool
     switch (editorState.activeTool) {
         case 'select':
             canvas.classList.add('cursor-select');
@@ -160,7 +163,7 @@ function updateCursor() {
             canvas.classList.add('cursor-delete');
             break;
         default:
-            // Drawing tools use crosshair (default)
+            // Drawing tools use crosshair (default CSS cursor)
             break;
     }
 }
