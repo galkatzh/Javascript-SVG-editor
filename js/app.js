@@ -351,17 +351,20 @@ function handleFileImport(e) {
 /**
  * Handle file export
  */
-function handleFileExport() {
+async function handleFileExport() {
     updateStatus('Exporting SVG...');
 
-    const filename = getExportFilename();
-    const success = exportSVG(snap, filename);
+    const result = await exportSVGWithDialog(snap);
 
-    if (success) {
-        updateStatus(`SVG exported as ${filename}`);
-        console.log('Export successful');
+    if (result.success) {
+        updateStatus(`SVG exported as ${result.filename}`);
+        console.log('Export successful:', result.filename);
+    } else if (result.cancelled) {
+        updateStatus('Export cancelled');
+        console.log('Export cancelled by user');
     } else {
         updateStatus('Export failed - see console for details');
+        console.error('Export failed:', result.error);
         alert('Failed to export SVG. Please try again.');
     }
 }
