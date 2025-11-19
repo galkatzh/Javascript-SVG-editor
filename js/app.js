@@ -80,15 +80,31 @@ function normalizeCanvasCoordinates() {
         return; // No elements to normalize
     }
 
-    // Calculate the bounding box of all elements
+    // Calculate the actual visual bounding box of all elements (accounting for transforms)
     let minX = Infinity;
     let minY = Infinity;
 
     elements.forEach(element => {
         try {
+            // Get the bounding box and transform matrix
             const bbox = element.getBBox();
-            minX = Math.min(minX, bbox.x);
-            minY = Math.min(minY, bbox.y);
+            const matrix = element.transform().localMatrix;
+
+            // Calculate the four corners of the bounding box
+            const corners = [
+                { x: bbox.x, y: bbox.y },
+                { x: bbox.x + bbox.width, y: bbox.y },
+                { x: bbox.x, y: bbox.y + bbox.height },
+                { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+            ];
+
+            // Transform each corner and find the minimum X and Y
+            corners.forEach(corner => {
+                const transformedX = matrix.x(corner.x, corner.y);
+                const transformedY = matrix.y(corner.x, corner.y);
+                minX = Math.min(minX, transformedX);
+                minY = Math.min(minY, transformedY);
+            });
         } catch (e) {
             // Skip elements that don't have a bounding box
             console.warn('Could not get bounding box for element:', element);
@@ -104,21 +120,31 @@ function normalizeCanvasCoordinates() {
 
         elements.forEach(element => {
             try {
-                // Get current transform
-                const currentTransform = element.transform().local;
+                // Get current transform matrix
+                const matrix = element.transform().localMatrix;
 
-                // Apply translation to move element into positive coordinate space
-                const newTransform = currentTransform + (currentTransform ? 'T' : 't') + [offsetX, offsetY];
-                element.attr({ transform: newTransform });
+                // Apply additional translation to the existing transform
+                const newMatrix = matrix.translate(offsetX, offsetY);
+
+                // Convert matrix to SVG transform string
+                element.attr({
+                    transform: `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`
+                });
 
                 // Update selection box if element has one
                 const selectionBox = element.data('selectionBox');
                 if (selectionBox) {
                     const bbox = element.getBBox();
+                    const updatedMatrix = element.transform().localMatrix;
+
+                    // Transform the top-left corner of the bounding box
+                    const transformedX = updatedMatrix.x(bbox.x, bbox.y);
+                    const transformedY = updatedMatrix.y(bbox.x, bbox.y);
+
                     const padding = 5;
                     selectionBox.attr({
-                        x: bbox.x - padding,
-                        y: bbox.y - padding,
+                        x: transformedX - padding,
+                        y: transformedY - padding,
                         width: bbox.width + (padding * 2),
                         height: bbox.height + (padding * 2)
                     });

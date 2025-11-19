@@ -67,14 +67,19 @@ function highlightSelected(element) {
     // Add selected class for CSS styling
     element.addClass('selected');
 
-    // Create a bounding box around the element
+    // Create a bounding box around the element (accounting for transforms)
     const bbox = element.getBBox();
+    const matrix = element.transform().localMatrix;
+
+    // Transform the top-left corner to get the actual visual position
+    const transformedX = matrix.x(bbox.x, bbox.y);
+    const transformedY = matrix.y(bbox.x, bbox.y);
 
     // Add padding to the bounding box
     const padding = 5;
     const selectionBox = snap.rect(
-        bbox.x - padding,
-        bbox.y - padding,
+        transformedX - padding,
+        transformedY - padding,
         bbox.width + (padding * 2),
         bbox.height + (padding * 2)
     ).attr({
@@ -110,22 +115,31 @@ function makeElementDraggable(element) {
                 return;
             }
 
-            // Get the original transform
-            const transform = this.data('origTransform');
+            // Get the original transform matrix
+            const origMatrix = this.data('origTransform');
 
-            // Apply translation
+            // Create new matrix by translating the original
+            const newMatrix = origMatrix.clone().translate(dx, dy);
+
+            // Apply the new transform
             this.attr({
-                transform: transform + (transform ? "T" : "t") + [dx, dy]
+                transform: `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`
             });
 
             // Update selection box if it exists
             const selectionBox = this.data('selectionBox');
             if (selectionBox) {
                 const bbox = this.getBBox();
+                const matrix = this.transform().localMatrix;
+
+                // Transform the top-left corner of the bounding box
+                const transformedX = matrix.x(bbox.x, bbox.y);
+                const transformedY = matrix.y(bbox.x, bbox.y);
+
                 const padding = 5;
                 selectionBox.attr({
-                    x: bbox.x - padding,
-                    y: bbox.y - padding,
+                    x: transformedX - padding,
+                    y: transformedY - padding,
                     width: bbox.width + (padding * 2),
                     height: bbox.height + (padding * 2)
                 });
@@ -144,8 +158,8 @@ function makeElementDraggable(element) {
                 selectElement(this);
             }
 
-            // Store the original transform
-            this.data('origTransform', this.transform().local);
+            // Store the original transform matrix
+            this.data('origTransform', this.transform().localMatrix);
         },
 
         // End handler - called when drag ends
