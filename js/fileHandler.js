@@ -197,6 +197,11 @@ async function exportSVGWithDialog(snapInstance) {
  * @returns {string} The formatted SVG string
  */
 function prepareSVGForExport(snapInstance) {
+    // Normalize coordinates before export to ensure leftmost X is 0
+    if (typeof normalizeCanvasCoordinates === 'function') {
+        normalizeCanvasCoordinates();
+    }
+
     // Get the SVG element
     const svgElement = snapInstance.node;
 
