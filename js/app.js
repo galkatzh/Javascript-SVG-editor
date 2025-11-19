@@ -58,11 +58,78 @@ function resizeSVGCanvas() {
     const width = editorState.customWidth || rect.width;
     const height = editorState.customHeight || rect.height;
 
+    // Normalize coordinates to ensure leftmost X is 0 and topmost Y is 0
+    normalizeCanvasCoordinates();
+
     snap.attr({
         width: width,
         height: height,
         viewBox: `0 0 ${width} ${height}`
     });
+}
+
+/**
+ * Normalize canvas coordinates to ensure leftmost X is 0 and topmost Y is 0
+ * This prevents negative coordinates that cause issues during export
+ */
+function normalizeCanvasCoordinates() {
+    // Get all drawable elements
+    const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text');
+
+    if (elements.length === 0) {
+        return; // No elements to normalize
+    }
+
+    // Calculate the bounding box of all elements
+    let minX = Infinity;
+    let minY = Infinity;
+
+    elements.forEach(element => {
+        try {
+            const bbox = element.getBBox();
+            minX = Math.min(minX, bbox.x);
+            minY = Math.min(minY, bbox.y);
+        } catch (e) {
+            // Skip elements that don't have a bounding box
+            console.warn('Could not get bounding box for element:', element);
+        }
+    });
+
+    // If we have negative coordinates, translate all elements
+    if (minX < 0 || minY < 0) {
+        const offsetX = minX < 0 ? -minX : 0;
+        const offsetY = minY < 0 ? -minY : 0;
+
+        console.log(`Normalizing coordinates: offsetX=${offsetX}, offsetY=${offsetY}`);
+
+        elements.forEach(element => {
+            try {
+                // Get current transform
+                const currentTransform = element.transform().local;
+
+                // Apply translation to move element into positive coordinate space
+                const newTransform = currentTransform + (currentTransform ? 'T' : 't') + [offsetX, offsetY];
+                element.attr({ transform: newTransform });
+
+                // Update selection box if element has one
+                const selectionBox = element.data('selectionBox');
+                if (selectionBox) {
+                    const bbox = element.getBBox();
+                    const padding = 5;
+                    selectionBox.attr({
+                        x: bbox.x - padding,
+                        y: bbox.y - padding,
+                        width: bbox.width + (padding * 2),
+                        height: bbox.height + (padding * 2)
+                    });
+                }
+            } catch (e) {
+                console.warn('Could not normalize element:', element, e);
+            }
+        });
+
+        updateStatus(`Coordinates normalized (offset: ${Math.round(offsetX)}, ${Math.round(offsetY)})`);
+    }
 }
 
 /**
