@@ -58,9 +58,6 @@ function resizeSVGCanvas() {
     const width = editorState.customWidth || rect.width;
     const height = editorState.customHeight || rect.height;
 
-    // Normalize coordinates to ensure leftmost X is 0 and topmost Y is 0
-    normalizeCanvasCoordinates();
-
     snap.attr({
         width: width,
         height: height,
