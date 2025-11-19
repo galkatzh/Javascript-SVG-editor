@@ -427,13 +427,21 @@ function handleFileImport(e) {
  * Handle file export
  */
 async function handleFileExport() {
-    updateStatus('Exporting SVG...');
+    updateStatus('Opening save dialog...');
 
     const result = await exportSVGWithDialog(snap);
 
     if (result.success) {
-        updateStatus(`SVG exported as ${result.filename}`);
-        console.log('Export successful:', result.filename);
+        if (result.method === 'file-system-api') {
+            updateStatus(`SVG saved as ${result.filename}`);
+            console.log('Export successful via File System Access API:', result.filename);
+        } else if (result.method === 'download') {
+            updateStatus(`Downloading ${result.filename} - Choose save location in browser dialog`);
+            console.log('Export initiated via download method:', result.filename);
+        } else {
+            updateStatus(`SVG exported as ${result.filename}`);
+            console.log('Export successful:', result.filename);
+        }
     } else if (result.cancelled) {
         updateStatus('Export cancelled');
         console.log('Export cancelled by user');
