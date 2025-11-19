@@ -475,11 +475,27 @@ function handleKeyDown(e) {
  */
 function getSVGCoordinates(event) {
     const canvas = document.getElementById('svg-canvas');
+
+    // Use SVG's built-in coordinate transformation to handle viewBox scaling
+    const point = canvas.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+
+    const screenCTM = canvas.getScreenCTM();
+    if (screenCTM) {
+        const svgPoint = point.matrixTransform(screenCTM.inverse());
+        return { x: svgPoint.x, y: svgPoint.y };
+    }
+
+    // Fallback for browsers that don't support getScreenCTM
     const rect = canvas.getBoundingClientRect();
+    const viewBox = canvas.viewBox.baseVal;
+    const scaleX = viewBox.width / rect.width;
+    const scaleY = viewBox.height / rect.height;
 
     return {
-        x: event.clientX - rect.left,
-        y: event.clientY - rect.top
+        x: (event.clientX - rect.left) * scaleX,
+        y: (event.clientY - rect.top) * scaleY
     };
 }
 
