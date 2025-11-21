@@ -121,9 +121,9 @@ function parseSVGContent(svgContent, snapInstance, onSuccess, onError) {
 
 /**
  * Export the current canvas as an SVG file with file save dialog
- * Uses File System Access API when available, falls back to download method
+ * Uses File System Access API when available, falls back to prompt dialog
  * @param {Snap} snapInstance - The Snap.svg instance
- * @returns {Promise<Object>} Promise that resolves to result object
+ * @returns {Promise<boolean>} Promise that resolves to true on success
  */
 async function exportSVGWithDialog(snapInstance) {
     try {
@@ -133,16 +133,13 @@ async function exportSVGWithDialog(snapInstance) {
         // Check if the File System Access API is supported
         if ('showSaveFilePicker' in window) {
             try {
-                console.log('Using File System Access API for file save dialog');
-
-                // Show save file picker dialog - this provides a native file browser
+                // Show save file picker dialog
                 const handle = await window.showSaveFilePicker({
                     suggestedName: getExportFilename(),
                     types: [{
                         description: 'SVG Files',
                         accept: { 'image/svg+xml': ['.svg'] }
-                    }],
-                    excludeAcceptAllOption: false
+                    }]
                 });
 
                 // Create a writable stream
@@ -154,37 +151,31 @@ async function exportSVGWithDialog(snapInstance) {
                 // Close the file
                 await writable.close();
 
-                console.log('File saved successfully via File System Access API:', handle.name);
-                return { success: true, filename: handle.name, method: 'file-system-api' };
+                return { success: true, filename: handle.name };
             } catch (error) {
-                // User cancelled the dialog
+                // User cancelled or error occurred
                 if (error.name === 'AbortError') {
-                    console.log('File save cancelled by user');
                     return { success: false, cancelled: true };
                 }
-
-                // Permission denied or other error - fall through to download method
-                console.warn('File System Access API error, falling back to download:', error.message);
-                // Fall through to download method below
+                throw error;
             }
         } else {
-            console.log('File System Access API not supported, using download method');
+            // Fallback: Use prompt to get custom filename
+            const defaultFilename = getExportFilename();
+            const userFilename = prompt('Enter filename for your SVG:', defaultFilename);
+
+            if (!userFilename) {
+                return { success: false, cancelled: true };
+            }
+
+            // Ensure .svg extension
+            const filename = userFilename.endsWith('.svg') ? userFilename : userFilename + '.svg';
+
+            // Use the legacy download method
+            downloadSVG(svgString, filename);
+
+            return { success: true, filename: filename };
         }
-
-        // Fallback: Use browser download with suggested filename
-        // This triggers the browser's native "Save As" dialog
-        const defaultFilename = getExportFilename();
-
-        // Use the download method which triggers browser's save dialog
-        downloadSVG(svgString, defaultFilename);
-
-        return {
-            success: true,
-            filename: defaultFilename,
-            method: 'download',
-            message: 'File download initiated. Your browser will prompt you to choose a save location.'
-        };
-
     } catch (error) {
         console.error('Error exporting SVG:', error);
         return { success: false, error: error.message };
