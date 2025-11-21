@@ -49,26 +49,26 @@ function init() {
 
 /**
  * Resize SVG canvas to match container or custom dimensions
- * Ensures canvas always expands to bottom-right, keeping (0,0) at top-left
- * and fitting all existing content
+ * Ensures canvas grows to bottom and right, keeping 0,0 at top-left
  */
 function resizeSVGCanvas() {
     const container = document.getElementById('canvas-container');
     const rect = container.getBoundingClientRect();
 
-    // Use custom dimensions if set, otherwise use container dimensions
-    let requestedWidth = editorState.customWidth || rect.width;
-    let requestedHeight = editorState.customHeight || rect.height;
+    // Start with custom dimensions if set, otherwise use container dimensions
+    let width = editorState.customWidth || rect.width;
+    let height = editorState.customHeight || rect.height;
 
-    // Calculate the bounding box of all elements to ensure we don't cut off content
-    const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text, g');
-
-    let maxX = requestedWidth;
-    let maxY = requestedHeight;
-    let minX = 0;
-    let minY = 0;
+    // Get all drawable elements
+    const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text');
 
     if (elements.length > 0) {
+        // Calculate the bounding box of all elements (accounting for transforms)
+        let maxX = 0;
+        let maxY = 0;
+        let minX = 0;
+        let minY = 0;
+
         elements.forEach(element => {
             try {
                 // Get the bounding box and transform matrix
@@ -83,11 +83,10 @@ function resizeSVGCanvas() {
                     { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
                 ];
 
-                // Transform each corner and find the bounds
+                // Transform each corner and find min/max
                 corners.forEach(corner => {
                     const transformedX = matrix.x(corner.x, corner.y);
                     const transformedY = matrix.y(corner.x, corner.y);
-
                     maxX = Math.max(maxX, transformedX);
                     maxY = Math.max(maxY, transformedY);
                     minX = Math.min(minX, transformedX);
@@ -99,19 +98,19 @@ function resizeSVGCanvas() {
             }
         });
 
-        // If any elements have negative coordinates, translate them to positive
+        // If there are negative coordinates, shift all elements to ensure 0,0 is top-left
         if (minX < 0 || minY < 0) {
             const offsetX = minX < 0 ? -minX : 0;
             const offsetY = minY < 0 ? -minY : 0;
 
-            console.log(`Normalizing coordinates during resize: offsetX=${offsetX}, offsetY=${offsetY}`);
+            console.log(`Shifting elements to prevent negative coordinates: offsetX=${offsetX}, offsetY=${offsetY}`);
 
             elements.forEach(element => {
                 try {
                     // Get current transform matrix
                     const matrix = element.transform().localMatrix;
 
-                    // Apply additional translation to move everything into positive coordinates
+                    // Apply additional translation to the existing transform
                     const newMatrix = matrix.translate(offsetX, offsetY);
 
                     // Convert matrix to SVG transform string
@@ -138,29 +137,27 @@ function resizeSVGCanvas() {
                         });
                     }
                 } catch (e) {
-                    console.warn('Could not normalize element during resize:', element, e);
+                    console.warn('Could not shift element:', element, e);
                 }
             });
 
-            // Adjust maxX and maxY by the offset since we moved everything
+            // Adjust max coordinates after shift
             maxX += offsetX;
             maxY += offsetY;
-            minX = 0;
-            minY = 0;
         }
 
-        // Add some padding to ensure content isn't right at the edge
+        // Add some padding to ensure elements aren't right at the edge
         const padding = 10;
-        maxX += padding;
-        maxY += padding;
+        const minRequiredWidth = Math.ceil(maxX) + padding;
+        const minRequiredHeight = Math.ceil(maxY) + padding;
+
+        // Ensure canvas is large enough to contain all elements
+        // Canvas grows to the bottom and right as needed
+        width = Math.max(width, minRequiredWidth);
+        height = Math.max(height, minRequiredHeight);
     }
 
-    // Ensure the canvas is at least as large as the content
-    const finalWidth = Math.max(requestedWidth, Math.ceil(maxX));
-    const finalHeight = Math.max(requestedHeight, Math.ceil(maxY));
-
-    // Set the SVG attributes with viewBox always starting at (0, 0)
-    // This ensures we always expand to the bottom-right
+    // Always set viewBox to start at 0,0 (top-left corner)
     snap.attr({
         width: finalWidth,
         height: finalHeight,
