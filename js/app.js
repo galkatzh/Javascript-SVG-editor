@@ -49,20 +49,133 @@ function init() {
 
 /**
  * Resize SVG canvas to match container or custom dimensions
+ * Ensures canvas always expands to bottom-right, keeping (0,0) at top-left
+ * and fitting all existing content
  */
 function resizeSVGCanvas() {
     const container = document.getElementById('canvas-container');
     const rect = container.getBoundingClientRect();
 
     // Use custom dimensions if set, otherwise use container dimensions
-    const width = editorState.customWidth || rect.width;
-    const height = editorState.customHeight || rect.height;
+    let requestedWidth = editorState.customWidth || rect.width;
+    let requestedHeight = editorState.customHeight || rect.height;
 
+    // Calculate the bounding box of all elements to ensure we don't cut off content
+    const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text, g');
+
+    let maxX = requestedWidth;
+    let maxY = requestedHeight;
+    let minX = 0;
+    let minY = 0;
+
+    if (elements.length > 0) {
+        elements.forEach(element => {
+            try {
+                // Get the bounding box and transform matrix
+                const bbox = element.getBBox();
+                const matrix = element.transform().localMatrix;
+
+                // Calculate the four corners of the bounding box
+                const corners = [
+                    { x: bbox.x, y: bbox.y },
+                    { x: bbox.x + bbox.width, y: bbox.y },
+                    { x: bbox.x, y: bbox.y + bbox.height },
+                    { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+                ];
+
+                // Transform each corner and find the bounds
+                corners.forEach(corner => {
+                    const transformedX = matrix.x(corner.x, corner.y);
+                    const transformedY = matrix.y(corner.x, corner.y);
+
+                    maxX = Math.max(maxX, transformedX);
+                    maxY = Math.max(maxY, transformedY);
+                    minX = Math.min(minX, transformedX);
+                    minY = Math.min(minY, transformedY);
+                });
+            } catch (e) {
+                // Skip elements that don't have a bounding box
+                console.warn('Could not get bounding box for element:', element);
+            }
+        });
+
+        // If any elements have negative coordinates, translate them to positive
+        if (minX < 0 || minY < 0) {
+            const offsetX = minX < 0 ? -minX : 0;
+            const offsetY = minY < 0 ? -minY : 0;
+
+            console.log(`Normalizing coordinates during resize: offsetX=${offsetX}, offsetY=${offsetY}`);
+
+            elements.forEach(element => {
+                try {
+                    // Get current transform matrix
+                    const matrix = element.transform().localMatrix;
+
+                    // Apply additional translation to move everything into positive coordinates
+                    const newMatrix = matrix.translate(offsetX, offsetY);
+
+                    // Convert matrix to SVG transform string
+                    element.attr({
+                        transform: `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`
+                    });
+
+                    // Update selection box if element has one
+                    const selectionBox = element.data('selectionBox');
+                    if (selectionBox) {
+                        const bbox = element.getBBox();
+                        const updatedMatrix = element.transform().localMatrix;
+
+                        // Transform the top-left corner of the bounding box
+                        const transformedX = updatedMatrix.x(bbox.x, bbox.y);
+                        const transformedY = updatedMatrix.y(bbox.x, bbox.y);
+
+                        const padding = 5;
+                        selectionBox.attr({
+                            x: transformedX - padding,
+                            y: transformedY - padding,
+                            width: bbox.width + (padding * 2),
+                            height: bbox.height + (padding * 2)
+                        });
+                    }
+                } catch (e) {
+                    console.warn('Could not normalize element during resize:', element, e);
+                }
+            });
+
+            // Adjust maxX and maxY by the offset since we moved everything
+            maxX += offsetX;
+            maxY += offsetY;
+            minX = 0;
+            minY = 0;
+        }
+
+        // Add some padding to ensure content isn't right at the edge
+        const padding = 10;
+        maxX += padding;
+        maxY += padding;
+    }
+
+    // Ensure the canvas is at least as large as the content
+    const finalWidth = Math.max(requestedWidth, Math.ceil(maxX));
+    const finalHeight = Math.max(requestedHeight, Math.ceil(maxY));
+
+    // Set the SVG attributes with viewBox always starting at (0, 0)
+    // This ensures we always expand to the bottom-right
     snap.attr({
-        width: width,
-        height: height,
-        viewBox: `0 0 ${width} ${height}`
+        width: finalWidth,
+        height: finalHeight,
+        viewBox: `0 0 ${finalWidth} ${finalHeight}`
     });
+
+    // Update the custom width/height in state if they were adjusted
+    if (editorState.customWidth && finalWidth > requestedWidth) {
+        editorState.customWidth = finalWidth;
+        document.getElementById('canvas-width').value = finalWidth;
+    }
+    if (editorState.customHeight && finalHeight > requestedHeight) {
+        editorState.customHeight = finalHeight;
+        document.getElementById('canvas-height').value = finalHeight;
+    }
 }
 
 /**
