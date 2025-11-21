@@ -159,10 +159,20 @@ function resizeSVGCanvas() {
 
     // Always set viewBox to start at 0,0 (top-left corner)
     snap.attr({
-        width: width,
-        height: height,
-        viewBox: `0 0 ${width} ${height}`
+        width: finalWidth,
+        height: finalHeight,
+        viewBox: `0 0 ${finalWidth} ${finalHeight}`
     });
+
+    // Update the custom width/height in state if they were adjusted
+    if (editorState.customWidth && finalWidth > requestedWidth) {
+        editorState.customWidth = finalWidth;
+        document.getElementById('canvas-width').value = finalWidth;
+    }
+    if (editorState.customHeight && finalHeight > requestedHeight) {
+        editorState.customHeight = finalHeight;
+        document.getElementById('canvas-height').value = finalHeight;
+    }
 }
 
 /**
