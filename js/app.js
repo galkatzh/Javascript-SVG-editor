@@ -59,6 +59,10 @@ function resizeSVGCanvas() {
     let width = editorState.customWidth || rect.width;
     let height = editorState.customHeight || rect.height;
 
+    // Store the original requested dimensions before any adjustments
+    const requestedWidth = width;
+    const requestedHeight = height;
+
     // Get all drawable elements
     const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text');
 
@@ -158,20 +162,21 @@ function resizeSVGCanvas() {
     }
 
     // Always set viewBox to start at 0,0 (top-left corner)
+    // This ensures the canvas origin stays at top-left and extends right/down
     snap.attr({
-        width: finalWidth,
-        height: finalHeight,
-        viewBox: `0 0 ${finalWidth} ${finalHeight}`
+        width: width,
+        height: height,
+        viewBox: `0 0 ${width} ${height}`
     });
 
     // Update the custom width/height in state if they were adjusted
-    if (editorState.customWidth && finalWidth > requestedWidth) {
-        editorState.customWidth = finalWidth;
-        document.getElementById('canvas-width').value = finalWidth;
+    if (editorState.customWidth && width > requestedWidth) {
+        editorState.customWidth = width;
+        document.getElementById('canvas-width').value = width;
     }
-    if (editorState.customHeight && finalHeight > requestedHeight) {
-        editorState.customHeight = finalHeight;
-        document.getElementById('canvas-height').value = finalHeight;
+    if (editorState.customHeight && height > requestedHeight) {
+        editorState.customHeight = height;
+        document.getElementById('canvas-height').value = height;
     }
 }
 
