@@ -9,7 +9,7 @@ const editorState = {
     strokeColor: '#000000',         // Current stroke color
     strokeWidth: 2,                 // Current stroke width
     fillColor: '#ffffff',           // Current fill color
-    fillTransparent: false,         // Transparent fill flag
+    fillTransparent: true,          // Transparent fill flag (default: true)
     shapeOpacity: 1.0,              // Shape opacity (0-1)
     customWidth: null,              // Custom canvas width (null = auto)
     customHeight: null,             // Custom canvas height (null = auto)
@@ -261,21 +261,40 @@ function setupToolbar() {
         updateStatus(`Stroke color changed to ${e.target.value}`);
     });
 
-    // Line width
-    const widthInput = document.getElementById('stroke-width');
-    widthInput.addEventListener('change', (e) => {
-        editorState.strokeWidth = parseInt(e.target.value);
-        updateStatus(`Line width changed to ${e.target.value}px`);
+    // Stroke width slider
+    const widthSlider = document.getElementById('stroke-width');
+    const widthValueDisplay = document.getElementById('stroke-width-value');
+    widthSlider.addEventListener('input', (e) => {
+        const value = parseInt(e.target.value);
+        editorState.strokeWidth = value;
+        widthValueDisplay.textContent = value;
+        updateStatus(`Line width changed to ${value}px`);
     });
+
+    // Shape opacity slider
+    const opacitySlider = document.getElementById('shape-opacity');
+    const opacityValueDisplay = document.getElementById('opacity-value');
+    opacitySlider.addEventListener('input', (e) => {
+        const percent = parseInt(e.target.value);
+        editorState.shapeOpacity = percent / 100;
+        opacityValueDisplay.textContent = percent;
+        updateStatus(`Opacity set to ${percent}%`);
+    });
+
+    // Setup expandable sliders
+    setupExpandableSliders();
 
     // Fill color picker
     const fillColorPicker = document.getElementById('fill-color');
+    const fillColorWrap = document.querySelector('.fill-color-wrap');
+
     fillColorPicker.addEventListener('change', (e) => {
         editorState.fillColor = e.target.value;
         // If color is changed, uncheck transparent
         if (editorState.fillTransparent) {
             editorState.fillTransparent = false;
             document.getElementById('fill-transparent').checked = false;
+            fillColorWrap.classList.remove('disabled');
         }
         updateStatus(`Fill color changed to ${e.target.value}`);
     });
@@ -284,6 +303,7 @@ function setupToolbar() {
     const fillTransparentCheckbox = document.getElementById('fill-transparent');
     fillTransparentCheckbox.addEventListener('change', (e) => {
         editorState.fillTransparent = e.target.checked;
+        updateFillColorState();
         if (e.target.checked) {
             updateStatus('Fill set to transparent');
         } else {
@@ -291,15 +311,8 @@ function setupToolbar() {
         }
     });
 
-    // Shape opacity slider
-    const opacitySlider = document.getElementById('shape-opacity');
-    const opacityValue = document.getElementById('opacity-value');
-    opacitySlider.addEventListener('input', (e) => {
-        const percent = parseInt(e.target.value);
-        editorState.shapeOpacity = percent / 100;
-        opacityValue.textContent = percent;
-        updateStatus(`Opacity set to ${percent}%`);
-    });
+    // Initialize fill color state (disabled by default since transparent is checked)
+    updateFillColorState();
 
     // Canvas width input
     const canvasWidthInput = document.getElementById('canvas-width');
@@ -722,6 +735,58 @@ function updateCursorPosition(point) {
  */
 function getDrawingAttributes() {
     return getDefaultAttributes(editorState.strokeColor, editorState.strokeWidth);
+}
+
+/**
+ * Setup expandable slider widgets
+ * Adds click-to-expand behavior and click-outside-to-collapse
+ */
+function setupExpandableSliders() {
+    const sliders = document.querySelectorAll('.expandable-slider');
+
+    sliders.forEach(slider => {
+        const trigger = slider.querySelector('.slider-trigger');
+
+        // Toggle expanded state on trigger click
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+
+            // Close other expanded sliders
+            sliders.forEach(s => {
+                if (s !== slider) {
+                    s.classList.remove('expanded');
+                }
+            });
+
+            // Toggle this slider
+            slider.classList.toggle('expanded');
+        });
+
+        // Prevent clicks inside slider panel from closing it
+        const panel = slider.querySelector('.slider-panel');
+        panel.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    });
+
+    // Close all sliders when clicking outside
+    document.addEventListener('click', () => {
+        sliders.forEach(slider => {
+            slider.classList.remove('expanded');
+        });
+    });
+}
+
+/**
+ * Update fill color input disabled state based on transparent checkbox
+ */
+function updateFillColorState() {
+    const fillColorWrap = document.querySelector('.fill-color-wrap');
+    if (editorState.fillTransparent) {
+        fillColorWrap.classList.add('disabled');
+    } else {
+        fillColorWrap.classList.remove('disabled');
+    }
 }
 
 // Initialize when DOM is ready
