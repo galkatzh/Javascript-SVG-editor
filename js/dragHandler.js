@@ -7,6 +7,63 @@
 const OPACITY_FACTOR = 0.7;
 
 /**
+ * Convert screen coordinates to SVG coordinates
+ * @param {number} screenX - Screen X coordinate
+ * @param {number} screenY - Screen Y coordinate
+ * @returns {Object} SVG coordinates {x, y}
+ */
+function screenToSVGCoords(screenX, screenY) {
+    const canvas = document.getElementById('svg-canvas');
+    const svgPoint = canvas.createSVGPoint();
+    svgPoint.x = screenX;
+    svgPoint.y = screenY;
+
+    const screenCTM = canvas.getScreenCTM();
+    if (screenCTM) {
+        const transformed = svgPoint.matrixTransform(screenCTM.inverse());
+        return { x: transformed.x, y: transformed.y };
+    }
+    return { x: screenX, y: screenY };
+}
+
+/**
+ * Get the visual bounding box of an element in SVG coordinates
+ * This accounts for all transforms applied to the element
+ * @param {Snap.Element} element - The element
+ * @returns {Object} Bounding box {x, y, width, height}
+ */
+function getVisualBBox(element) {
+    const bbox = element.node.getBoundingClientRect();
+
+    const topLeft = screenToSVGCoords(bbox.left, bbox.top);
+    const bottomRight = screenToSVGCoords(bbox.right, bbox.bottom);
+
+    return {
+        x: topLeft.x,
+        y: topLeft.y,
+        width: bottomRight.x - topLeft.x,
+        height: bottomRight.y - topLeft.y
+    };
+}
+
+/**
+ * Update selection box position based on element's visual bounding box
+ * @param {Snap.Element} element - The selected element
+ * @param {Snap.Element} selectionBox - The selection box element
+ */
+function updateSelectionBoxPosition(element, selectionBox) {
+    const visualBBox = getVisualBBox(element);
+    const padding = 5;
+
+    selectionBox.attr({
+        x: visualBBox.x - padding,
+        y: visualBBox.y - padding,
+        width: visualBBox.width + (padding * 2),
+        height: visualBBox.height + (padding * 2)
+    });
+}
+
+/**
  * Select an element and add visual feedback
  * @param {Snap.Element} element - The element to select
  */
@@ -62,22 +119,26 @@ function highlightSelected(element) {
     const existingBox = element.data('selectionBox');
     if (existingBox) {
         existingBox.remove();
+        element.data('selectionBox', null);
     }
+
+    // Also remove any orphaned selection boxes
+    const orphanedBoxes = snap.selectAll('.selection-box');
+    orphanedBoxes.forEach(box => box.remove());
 
     // Add selected class for CSS styling
     element.addClass('selected');
 
-    // Create a bounding box around the element
-    // Use bbox coordinates directly (local coordinates before transform)
-    const bbox = element.getBBox();
+    // Get the visual bounding box (includes all transforms)
+    const visualBBox = getVisualBBox(element);
     const padding = 5;
 
-    // Create selection box using local coordinates (matching the element's coordinate space)
+    // Create selection box at the visual position (no transform needed)
     const selectionBox = snap.rect(
-        bbox.x - padding,
-        bbox.y - padding,
-        bbox.width + (padding * 2),
-        bbox.height + (padding * 2)
+        visualBBox.x - padding,
+        visualBBox.y - padding,
+        visualBBox.width + (padding * 2),
+        visualBBox.height + (padding * 2)
     ).attr({
         fill: 'none',
         stroke: '#00aaff',
@@ -86,17 +147,10 @@ function highlightSelected(element) {
         class: 'selection-box'
     });
 
-    // Apply the same transform as the element to the selection box
-    // Use the transform attribute directly for exact matching
-    const transformAttr = element.attr('transform');
-    if (transformAttr) {
-        selectionBox.attr({ transform: transformAttr });
-    }
-
     // Store reference to selection box in the element's data
     element.data('selectionBox', selectionBox);
 
-    // Move selection box to front (but behind the selected element)
+    // Move selection box behind the selected element
     selectionBox.insertBefore(element);
 }
 
@@ -118,43 +172,17 @@ function makeElementDraggable(element) {
                 return;
             }
 
-            // Convert screen coordinates to SVG coordinates
-            // dx, dy from Snap.svg are in screen pixels, need to convert to SVG units
-            const canvas = document.getElementById('svg-canvas');
-            const screenCTM = canvas.getScreenCTM();
-
-            // Calculate SVG delta by using the scale factor from the CTM
-            // The CTM inverse converts screen to SVG coordinates
-            let svgDx = dx;
-            let svgDy = dy;
-            if (screenCTM) {
-                // The scale factors are in the diagonal of the CTM
-                svgDx = dx / screenCTM.a;
-                svgDy = dy / screenCTM.d;
-            }
-
-            // Get the original transform matrix
-            const origMatrix = this.data('origTransform');
-
-            // Create new matrix by adding the SVG-coordinate delta to the original translation
-            const newMatrix = new Snap.Matrix(
-                origMatrix.a, origMatrix.b,
-                origMatrix.c, origMatrix.d,
-                origMatrix.e + svgDx, origMatrix.f + svgDy
-            );
-
-            // Apply the new transform to the element
-            const transformStr = `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`;
+            // Use the standard Snap.svg transform pattern
+            // Concatenate original transform with new translation
+            var origTransform = this.data('origTransform') || '';
             this.attr({
-                transform: transformStr
+                transform: origTransform + (origTransform ? "T" : "t") + dx + "," + dy
             });
 
-            // Update selection box with the same transform
+            // Update selection box position based on element's new visual position
             const selectionBox = this.data('selectionBox');
             if (selectionBox) {
-                selectionBox.attr({
-                    transform: transformStr
-                });
+                updateSelectionBoxPosition(this, selectionBox);
             }
         },
 
@@ -170,8 +198,9 @@ function makeElementDraggable(element) {
                 selectElement(this);
             }
 
-            // Store the original transform matrix
-            this.data('origTransform', this.transform().localMatrix);
+            // Store the original transform as a STRING (not matrix)
+            // This is the correct Snap.svg pattern
+            this.data('origTransform', this.transform().local);
         },
 
         // End handler - called when drag ends

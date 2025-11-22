@@ -122,13 +122,10 @@ function resizeSVGCanvas() {
                         transform: `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`
                     });
 
-                    // Update selection box with the same transform as the element
+                    // Update selection box using visual bounding box
                     const selectionBox = element.data('selectionBox');
-                    if (selectionBox) {
-                        const updatedMatrix = element.transform().localMatrix;
-                        selectionBox.attr({
-                            transform: `matrix(${updatedMatrix.a},${updatedMatrix.b},${updatedMatrix.c},${updatedMatrix.d},${updatedMatrix.e},${updatedMatrix.f})`
-                        });
+                    if (selectionBox && typeof updateSelectionBoxPosition === 'function') {
+                        updateSelectionBoxPosition(element, selectionBox);
                     }
                 } catch (e) {
                     console.warn('Could not shift element:', element, e);
@@ -233,13 +230,10 @@ function normalizeCanvasCoordinates() {
                     transform: `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`
                 });
 
-                // Update selection box with the same transform as the element
+                // Update selection box using visual bounding box
                 const selectionBox = element.data('selectionBox');
-                if (selectionBox) {
-                    const updatedMatrix = element.transform().localMatrix;
-                    selectionBox.attr({
-                        transform: `matrix(${updatedMatrix.a},${updatedMatrix.b},${updatedMatrix.c},${updatedMatrix.d},${updatedMatrix.e},${updatedMatrix.f})`
-                    });
+                if (selectionBox && typeof updateSelectionBoxPosition === 'function') {
+                    updateSelectionBoxPosition(element, selectionBox);
                 }
             } catch (e) {
                 console.warn('Could not normalize element:', element, e);
