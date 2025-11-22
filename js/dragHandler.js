@@ -87,11 +87,11 @@ function highlightSelected(element) {
     });
 
     // Apply the same transform as the element to the selection box
-    // This ensures they move together perfectly
-    const matrix = element.transform().localMatrix;
-    selectionBox.attr({
-        transform: `matrix(${matrix.a},${matrix.b},${matrix.c},${matrix.d},${matrix.e},${matrix.f})`
-    });
+    // Use the transform attribute directly for exact matching
+    const transformAttr = element.attr('transform');
+    if (transformAttr) {
+        selectionBox.attr({ transform: transformAttr });
+    }
 
     // Store reference to selection box in the element's data
     element.data('selectionBox', selectionBox);
@@ -118,15 +118,29 @@ function makeElementDraggable(element) {
                 return;
             }
 
+            // Convert screen coordinates to SVG coordinates
+            // dx, dy from Snap.svg are in screen pixels, need to convert to SVG units
+            const canvas = document.getElementById('svg-canvas');
+            const screenCTM = canvas.getScreenCTM();
+
+            // Calculate SVG delta by using the scale factor from the CTM
+            // The CTM inverse converts screen to SVG coordinates
+            let svgDx = dx;
+            let svgDy = dy;
+            if (screenCTM) {
+                // The scale factors are in the diagonal of the CTM
+                svgDx = dx / screenCTM.a;
+                svgDy = dy / screenCTM.d;
+            }
+
             // Get the original transform matrix
             const origMatrix = this.data('origTransform');
 
-            // Create new matrix by adding the drag delta to the original translation
-            // Use direct translation values to avoid matrix multiplication issues
+            // Create new matrix by adding the SVG-coordinate delta to the original translation
             const newMatrix = new Snap.Matrix(
                 origMatrix.a, origMatrix.b,
                 origMatrix.c, origMatrix.d,
-                origMatrix.e + dx, origMatrix.f + dy
+                origMatrix.e + svgDx, origMatrix.f + svgDy
             );
 
             // Apply the new transform to the element
