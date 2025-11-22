@@ -67,19 +67,15 @@ function highlightSelected(element) {
     // Add selected class for CSS styling
     element.addClass('selected');
 
-    // Create a bounding box around the element (accounting for transforms)
+    // Create a bounding box around the element
+    // Use bbox coordinates directly (local coordinates before transform)
     const bbox = element.getBBox();
-    const matrix = element.transform().localMatrix;
-
-    // Transform the top-left corner to get the actual visual position
-    const transformedX = matrix.x(bbox.x, bbox.y);
-    const transformedY = matrix.y(bbox.x, bbox.y);
-
-    // Add padding to the bounding box
     const padding = 5;
+
+    // Create selection box using local coordinates (matching the element's coordinate space)
     const selectionBox = snap.rect(
-        transformedX - padding,
-        transformedY - padding,
+        bbox.x - padding,
+        bbox.y - padding,
         bbox.width + (padding * 2),
         bbox.height + (padding * 2)
     ).attr({
@@ -88,6 +84,13 @@ function highlightSelected(element) {
         strokeWidth: 1,
         strokeDasharray: '5,5',
         class: 'selection-box'
+    });
+
+    // Apply the same transform as the element to the selection box
+    // This ensures they move together perfectly
+    const matrix = element.transform().localMatrix;
+    selectionBox.attr({
+        transform: `matrix(${matrix.a},${matrix.b},${matrix.c},${matrix.d},${matrix.e},${matrix.f})`
     });
 
     // Store reference to selection box in the element's data
@@ -118,30 +121,25 @@ function makeElementDraggable(element) {
             // Get the original transform matrix
             const origMatrix = this.data('origTransform');
 
-            // Create new matrix by translating the original
-            const newMatrix = origMatrix.clone().translate(dx, dy);
+            // Create new matrix by adding the drag delta to the original translation
+            // Use direct translation values to avoid matrix multiplication issues
+            const newMatrix = new Snap.Matrix(
+                origMatrix.a, origMatrix.b,
+                origMatrix.c, origMatrix.d,
+                origMatrix.e + dx, origMatrix.f + dy
+            );
 
-            // Apply the new transform
+            // Apply the new transform to the element
+            const transformStr = `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`;
             this.attr({
-                transform: `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`
+                transform: transformStr
             });
 
-            // Update selection box if it exists
+            // Update selection box with the same transform
             const selectionBox = this.data('selectionBox');
             if (selectionBox) {
-                const bbox = this.getBBox();
-                const matrix = this.transform().localMatrix;
-
-                // Transform the top-left corner of the bounding box
-                const transformedX = matrix.x(bbox.x, bbox.y);
-                const transformedY = matrix.y(bbox.x, bbox.y);
-
-                const padding = 5;
                 selectionBox.attr({
-                    x: transformedX - padding,
-                    y: transformedY - padding,
-                    width: bbox.width + (padding * 2),
-                    height: bbox.height + (padding * 2)
+                    transform: transformStr
                 });
             }
         },

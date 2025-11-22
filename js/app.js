@@ -122,22 +122,12 @@ function resizeSVGCanvas() {
                         transform: `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`
                     });
 
-                    // Update selection box if element has one
+                    // Update selection box with the same transform as the element
                     const selectionBox = element.data('selectionBox');
                     if (selectionBox) {
-                        const bbox = element.getBBox();
                         const updatedMatrix = element.transform().localMatrix;
-
-                        // Transform the top-left corner of the bounding box
-                        const transformedX = updatedMatrix.x(bbox.x, bbox.y);
-                        const transformedY = updatedMatrix.y(bbox.x, bbox.y);
-
-                        const padding = 5;
                         selectionBox.attr({
-                            x: transformedX - padding,
-                            y: transformedY - padding,
-                            width: bbox.width + (padding * 2),
-                            height: bbox.height + (padding * 2)
+                            transform: `matrix(${updatedMatrix.a},${updatedMatrix.b},${updatedMatrix.c},${updatedMatrix.d},${updatedMatrix.e},${updatedMatrix.f})`
                         });
                     }
                 } catch (e) {
@@ -243,22 +233,12 @@ function normalizeCanvasCoordinates() {
                     transform: `matrix(${newMatrix.a},${newMatrix.b},${newMatrix.c},${newMatrix.d},${newMatrix.e},${newMatrix.f})`
                 });
 
-                // Update selection box if element has one
+                // Update selection box with the same transform as the element
                 const selectionBox = element.data('selectionBox');
                 if (selectionBox) {
-                    const bbox = element.getBBox();
                     const updatedMatrix = element.transform().localMatrix;
-
-                    // Transform the top-left corner of the bounding box
-                    const transformedX = updatedMatrix.x(bbox.x, bbox.y);
-                    const transformedY = updatedMatrix.y(bbox.x, bbox.y);
-
-                    const padding = 5;
                     selectionBox.attr({
-                        x: transformedX - padding,
-                        y: transformedY - padding,
-                        width: bbox.width + (padding * 2),
-                        height: bbox.height + (padding * 2)
+                        transform: `matrix(${updatedMatrix.a},${updatedMatrix.b},${updatedMatrix.c},${updatedMatrix.d},${updatedMatrix.e},${updatedMatrix.f})`
                     });
                 }
             } catch (e) {
