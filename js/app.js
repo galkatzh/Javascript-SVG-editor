@@ -648,9 +648,73 @@ function handleClearCanvas() {
 }
 
 /**
+ * Select a tool by name (used for keyboard shortcuts)
+ */
+function selectToolByName(toolName) {
+    const button = document.querySelector(`.tool-btn[data-tool="${toolName}"]`);
+    if (button) {
+        // Update active tool
+        editorState.activeTool = toolName;
+
+        // Update button states
+        document.querySelectorAll('.tool-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        button.classList.add('active');
+
+        // Update cursor
+        updateCursor();
+
+        // Deselect current element
+        if (editorState.selectedElement) {
+            deselectElement();
+        }
+
+        updateStatus(`Tool changed to: ${toolName}`);
+    }
+}
+
+/**
  * Handle keyboard shortcuts
  */
 function handleKeyDown(e) {
+    // Don't trigger shortcuts when typing in input fields
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+    }
+
+    // Tool shortcuts (only when no modifier keys are pressed)
+    if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+        const key = e.key.toLowerCase();
+
+        switch (key) {
+            case 'v':
+                selectToolByName('select');
+                e.preventDefault();
+                break;
+            case 'l':
+                selectToolByName('line');
+                e.preventDefault();
+                break;
+            case 'c':
+                selectToolByName('circle');
+                e.preventDefault();
+                break;
+            case 'r':
+                selectToolByName('rect');
+                e.preventDefault();
+                break;
+            case 'p':
+                selectToolByName('scribble');
+                e.preventDefault();
+                break;
+            case 'x':
+                selectToolByName('delete');
+                e.preventDefault();
+                break;
+        }
+    }
+
     // Delete key
     if (e.key === 'Delete' && editorState.selectedElement) {
         deleteSelected();
