@@ -1,0 +1,31 @@
+name: PR Preview - Cloudflare Pages
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  deploy-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      deployments: write
+
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No build step needed for plain HTML/JS
+
+      - name: Publish to Cloudflare Pages
+        id: pages
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ secrets.CLOUDFLARE_PAGES_PROJECT }}
+          directory: .               # folder with your index.html
+          branch: pr-${{ github.event.number }}
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}  # creates a GitHub Deployment
