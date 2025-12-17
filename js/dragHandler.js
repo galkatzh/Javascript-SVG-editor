@@ -83,12 +83,7 @@ function selectElement(element) {
     // Add visual feedback
     highlightSelected(element);
 
-    // Update properties panel to show this element's properties
-    if (typeof updatePropertiesPanelFromElement === 'function') {
-        updatePropertiesPanelFromElement(element);
-    }
-
-    updateStatus('Element selected - Drag to move, Delete to remove, or edit properties');
+    updateStatus('Element selected - Drag to move, Delete to remove');
 }
 
 /**
@@ -210,9 +205,8 @@ function makeElementDraggable(element) {
 
         // End handler - called when drag ends
         function(event) {
-            // Drag complete - save to history
+            // Drag complete
             if (editorState.selectedElement === this) {
-                saveStateToHistory();
                 updateStatus('Element moved');
             }
         }
@@ -277,9 +271,6 @@ function makeAllShapesDraggable() {
  * @param {Snap.Element} element - The element to delete
  */
 function deleteElement(element) {
-    // Save state before deletion
-    saveStateToHistory();
-
     // Remove selection box if it exists
     const selectionBox = element.data('selectionBox');
     if (selectionBox) {
