@@ -83,7 +83,10 @@ function selectElement(element) {
     // Add visual feedback
     highlightSelected(element);
 
-    updateStatus('Element selected - Drag to move, Delete to remove');
+    // Populate property panel with shape's current attributes
+    populatePropertyPanel(element);
+
+    updateStatus('Element selected - Edit properties or drag to move');
 }
 
 /**
@@ -106,6 +109,10 @@ function deselectElement() {
         editorState.selectedElement.attr({ opacity: originalOpacity });
 
         editorState.selectedElement = null;
+
+        // Reset property panel to default values
+        resetPropertyPanel();
+
         updateStatus('Selection cleared');
     }
 }

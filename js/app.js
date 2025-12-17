@@ -245,6 +245,58 @@ function normalizeCanvasCoordinates() {
 }
 
 /**
+ * Populate property panel with selected shape's attributes
+ * @param {Snap.Element} element - The selected element
+ */
+function populatePropertyPanel(element) {
+    const stroke = element.attr('stroke') || '#000000';
+    const strokeWidth = element.attr('strokeWidth') || 2;
+    const fill = element.attr('fill');
+    const opacity = element.attr('opacity') || 1.0;
+
+    // Update stroke color
+    document.getElementById('stroke-color').value = stroke;
+
+    // Update stroke width
+    document.getElementById('stroke-width').value = strokeWidth;
+    document.getElementById('stroke-width-value').textContent = strokeWidth;
+
+    // Update fill color and transparency
+    const fillTransparent = fill === 'none';
+    document.getElementById('fill-transparent').checked = fillTransparent;
+
+    if (fillTransparent) {
+        document.getElementById('fill-color').value = '#ffffff';
+    } else {
+        document.getElementById('fill-color').value = fill || '#ffffff';
+    }
+
+    updateFillColorState();
+
+    // Update opacity
+    const opacityPercent = Math.round(opacity * 100);
+    document.getElementById('shape-opacity').value = opacityPercent;
+    document.getElementById('opacity-value').textContent = opacityPercent;
+}
+
+/**
+ * Reset property panel to default values
+ */
+function resetPropertyPanel() {
+    document.getElementById('stroke-color').value = editorState.strokeColor;
+    document.getElementById('stroke-width').value = editorState.strokeWidth;
+    document.getElementById('stroke-width-value').textContent = editorState.strokeWidth;
+    document.getElementById('fill-color').value = editorState.fillColor;
+    document.getElementById('fill-transparent').checked = editorState.fillTransparent;
+
+    const opacityPercent = Math.round(editorState.shapeOpacity * 100);
+    document.getElementById('shape-opacity').value = opacityPercent;
+    document.getElementById('opacity-value').textContent = opacityPercent;
+
+    updateFillColorState();
+}
+
+/**
  * Setup toolbar event listeners
  */
 function setupToolbar() {
@@ -258,7 +310,14 @@ function setupToolbar() {
     const colorPicker = document.getElementById('stroke-color');
     colorPicker.addEventListener('change', (e) => {
         editorState.strokeColor = e.target.value;
-        updateStatus(`Stroke color changed to ${e.target.value}`);
+
+        // Update selected shape if one exists
+        if (editorState.selectedElement) {
+            editorState.selectedElement.attr({ stroke: e.target.value });
+            updateStatus(`Shape stroke color changed to ${e.target.value}`);
+        } else {
+            updateStatus(`Stroke color changed to ${e.target.value}`);
+        }
     });
 
     // Stroke width slider
@@ -268,7 +327,14 @@ function setupToolbar() {
         const value = parseInt(e.target.value);
         editorState.strokeWidth = value;
         widthValueDisplay.textContent = value;
-        updateStatus(`Line width changed to ${value}px`);
+
+        // Update selected shape if one exists
+        if (editorState.selectedElement) {
+            editorState.selectedElement.attr({ strokeWidth: value });
+            updateStatus(`Shape line width changed to ${value}px`);
+        } else {
+            updateStatus(`Line width changed to ${value}px`);
+        }
     });
 
     // Shape opacity slider
@@ -278,7 +344,17 @@ function setupToolbar() {
         const percent = parseInt(e.target.value);
         editorState.shapeOpacity = percent / 100;
         opacityValueDisplay.textContent = percent;
-        updateStatus(`Opacity set to ${percent}%`);
+
+        // Update selected shape if one exists
+        if (editorState.selectedElement) {
+            const opacity = percent / 100;
+            editorState.selectedElement.attr({ opacity: opacity });
+            // Update the stored original opacity so selection effect works correctly
+            editorState.selectedElement.data('originalOpacity', opacity);
+            updateStatus(`Shape opacity set to ${percent}%`);
+        } else {
+            updateStatus(`Opacity set to ${percent}%`);
+        }
     });
 
     // Setup expandable sliders
@@ -296,7 +372,14 @@ function setupToolbar() {
             document.getElementById('fill-transparent').checked = false;
             fillColorWrap.classList.remove('disabled');
         }
-        updateStatus(`Fill color changed to ${e.target.value}`);
+
+        // Update selected shape if one exists
+        if (editorState.selectedElement) {
+            editorState.selectedElement.attr({ fill: e.target.value });
+            updateStatus(`Shape fill color changed to ${e.target.value}`);
+        } else {
+            updateStatus(`Fill color changed to ${e.target.value}`);
+        }
     });
 
     // Fill transparent checkbox
@@ -304,10 +387,22 @@ function setupToolbar() {
     fillTransparentCheckbox.addEventListener('change', (e) => {
         editorState.fillTransparent = e.target.checked;
         updateFillColorState();
-        if (e.target.checked) {
-            updateStatus('Fill set to transparent');
+
+        // Update selected shape if one exists
+        if (editorState.selectedElement) {
+            if (e.target.checked) {
+                editorState.selectedElement.attr({ fill: 'none' });
+                updateStatus('Shape fill set to transparent');
+            } else {
+                editorState.selectedElement.attr({ fill: editorState.fillColor });
+                updateStatus(`Shape fill color set to ${editorState.fillColor}`);
+            }
         } else {
-            updateStatus(`Fill color set to ${editorState.fillColor}`);
+            if (e.target.checked) {
+                updateStatus('Fill set to transparent');
+            } else {
+                updateStatus(`Fill color set to ${editorState.fillColor}`);
+            }
         }
     });
 
