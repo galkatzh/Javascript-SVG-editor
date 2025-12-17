@@ -20,6 +20,13 @@ const editorState = {
     scribblePoints: []              // Points for scribble tool
 };
 
+// Undo/Redo history management
+const historyState = {
+    undoStack: [],                  // Stack of past states
+    redoStack: [],                  // Stack of undone states
+    maxHistorySize: 50              // Maximum number of undo steps
+};
+
 // Snap.svg instance
 let snap = null;
 
@@ -168,6 +175,121 @@ function resizeSVGCanvas() {
 }
 
 /**
+ * Save current canvas state to history for undo/redo
+ */
+function saveStateToHistory() {
+    // Temporarily remove selection boxes before saving
+    const selectionBoxes = snap.selectAll('.selection-box');
+    const boxElements = [];
+    selectionBoxes.forEach(box => {
+        boxElements.push({
+            element: box,
+            nextSibling: box.node.nextSibling
+        });
+        box.remove();
+    });
+
+    // Get the current SVG content (without selection boxes)
+    const currentState = snap.toString();
+
+    // Restore selection boxes
+    boxElements.forEach(({ element, nextSibling }) => {
+        if (nextSibling && nextSibling.parentNode) {
+            snap.node.insertBefore(element.node, nextSibling);
+        } else {
+            snap.append(element);
+        }
+    });
+
+    // Add to undo stack
+    historyState.undoStack.push(currentState);
+
+    // Limit history size
+    if (historyState.undoStack.length > historyState.maxHistorySize) {
+        historyState.undoStack.shift();
+    }
+
+    // Clear redo stack when new action is performed
+    historyState.redoStack = [];
+}
+
+/**
+ * Restore canvas state from SVG string
+ * @param {string} svgContent - The SVG content to restore
+ */
+function restoreCanvasState(svgContent) {
+    // Deselect any selected element
+    if (editorState.selectedElement) {
+        deselectElement();
+    }
+
+    // Clear current canvas
+    snap.clear();
+
+    // Parse and restore the SVG content
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(svgContent, 'image/svg+xml');
+    const svgElement = doc.documentElement;
+
+    // Import all child elements
+    Array.from(svgElement.children).forEach(child => {
+        const imported = Snap.parse(child.outerHTML);
+        snap.append(imported);
+
+        // Make imported elements draggable
+        const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse').items;
+        elements.forEach(element => {
+            if (!element.data('draggable')) {
+                makeElementDraggable(element);
+                element.data('draggable', true);
+            }
+        });
+    });
+}
+
+/**
+ * Undo the last action
+ */
+function undo() {
+    if (historyState.undoStack.length === 0) {
+        updateStatus('Nothing to undo');
+        return;
+    }
+
+    // Save current state to redo stack
+    historyState.redoStack.push(snap.toString());
+
+    // Get previous state
+    const previousState = historyState.undoStack.pop();
+
+    // Restore previous state
+    restoreCanvasState(previousState);
+
+    updateStatus('Undo successful');
+}
+
+/**
+ * Redo the last undone action
+ */
+function redo() {
+    if (historyState.redoStack.length === 0) {
+        updateStatus('Nothing to redo');
+        return;
+    }
+
+    // Save current state to undo stack
+    historyState.undoStack.push(snap.toString());
+
+    // Get next state
+    const nextState = historyState.redoStack.pop();
+
+    // Restore next state
+    restoreCanvasState(nextState);
+
+    updateStatus('Redo successful');
+}
+
+/**
  * Normalize canvas coordinates to ensure leftmost X is 0 and topmost Y is 0
  * This prevents negative coordinates that cause issues during export
  */
@@ -259,6 +381,10 @@ function setupToolbar() {
     colorPicker.addEventListener('change', (e) => {
         editorState.strokeColor = e.target.value;
         updateStatus(`Stroke color changed to ${e.target.value}`);
+        // Update selected element if one is selected
+        if (editorState.selectedElement) {
+            updateSelectedElementProperties();
+        }
     });
 
     // Stroke width slider
@@ -269,6 +395,10 @@ function setupToolbar() {
         editorState.strokeWidth = value;
         widthValueDisplay.textContent = value;
         updateStatus(`Line width changed to ${value}px`);
+        // Update selected element if one is selected
+        if (editorState.selectedElement) {
+            updateSelectedElementProperties();
+        }
     });
 
     // Shape opacity slider
@@ -279,6 +409,10 @@ function setupToolbar() {
         editorState.shapeOpacity = percent / 100;
         opacityValueDisplay.textContent = percent;
         updateStatus(`Opacity set to ${percent}%`);
+        // Update selected element if one is selected
+        if (editorState.selectedElement) {
+            updateSelectedElementProperties();
+        }
     });
 
     // Setup expandable sliders
@@ -297,6 +431,10 @@ function setupToolbar() {
             fillColorWrap.classList.remove('disabled');
         }
         updateStatus(`Fill color changed to ${e.target.value}`);
+        // Update selected element if one is selected
+        if (editorState.selectedElement) {
+            updateSelectedElementProperties();
+        }
     });
 
     // Fill transparent checkbox
@@ -308,6 +446,10 @@ function setupToolbar() {
             updateStatus('Fill set to transparent');
         } else {
             updateStatus(`Fill color set to ${editorState.fillColor}`);
+        }
+        // Update selected element if one is selected
+        if (editorState.selectedElement) {
+            updateSelectedElementProperties();
         }
     });
 
@@ -536,6 +678,9 @@ function handleMouseUp(e) {
     const point = getSVGCoordinates(e);
     const tool = editorState.activeTool;
 
+    // Save state before creating new shape
+    saveStateToHistory();
+
     // Finalize the shape
     switch (tool) {
         case 'line':
@@ -683,6 +828,19 @@ function handleKeyDown(e) {
         return;
     }
 
+    // Undo/Redo shortcuts (Ctrl+Z and Ctrl+Shift+Z)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+        if (e.shiftKey) {
+            // Ctrl+Shift+Z or Cmd+Shift+Z = Redo
+            redo();
+        } else {
+            // Ctrl+Z or Cmd+Z = Undo
+            undo();
+        }
+        e.preventDefault();
+        return;
+    }
+
     // Tool shortcuts (only when no modifier keys are pressed)
     if (!e.ctrlKey && !e.metaKey && !e.altKey) {
         const key = e.key.toLowerCase();
@@ -760,6 +918,9 @@ function getSVGCoordinates(event) {
  */
 function deleteSelected() {
     if (editorState.selectedElement) {
+        // Save state before deletion
+        saveStateToHistory();
+
         // Remove selection box if it exists
         const selectionBox = editorState.selectedElement.data('selectionBox');
         if (selectionBox) {
@@ -851,6 +1012,89 @@ function updateFillColorState() {
     } else {
         fillColorWrap.classList.remove('disabled');
     }
+}
+
+/**
+ * Update properties panel to reflect selected element's attributes
+ * @param {Snap.Element} element - The selected element
+ */
+function updatePropertiesPanelFromElement(element) {
+    if (!element) return;
+
+    // Get element attributes
+    const stroke = element.attr('stroke');
+    const strokeWidth = element.attr('strokeWidth') || element.attr('stroke-width');
+    const fill = element.attr('fill');
+    // Get original opacity from data (not the current display opacity with OPACITY_FACTOR)
+    const opacity = element.data('originalOpacity') || element.attr('opacity') || 1.0;
+
+    // Update stroke color
+    if (stroke && stroke !== 'none') {
+        document.getElementById('stroke-color').value = stroke;
+        editorState.strokeColor = stroke;
+    }
+
+    // Update stroke width
+    if (strokeWidth) {
+        const width = parseInt(strokeWidth);
+        document.getElementById('stroke-width').value = width;
+        document.getElementById('stroke-width-value').textContent = width;
+        editorState.strokeWidth = width;
+    }
+
+    // Update fill color and transparent checkbox
+    if (fill === 'none') {
+        document.getElementById('fill-transparent').checked = true;
+        editorState.fillTransparent = true;
+        updateFillColorState();
+    } else if (fill) {
+        document.getElementById('fill-color').value = fill;
+        document.getElementById('fill-transparent').checked = false;
+        editorState.fillColor = fill;
+        editorState.fillTransparent = false;
+        updateFillColorState();
+    }
+
+    // Update opacity (use original opacity, not the selection-adjusted one)
+    const opacityPercent = Math.round(opacity * 100);
+    document.getElementById('shape-opacity').value = opacityPercent;
+    document.getElementById('opacity-value').textContent = opacityPercent;
+    editorState.shapeOpacity = opacity;
+}
+
+/**
+ * Update selected element's attributes from current property values
+ */
+function updateSelectedElementProperties() {
+    if (!editorState.selectedElement) return;
+
+    // Save state before modifying
+    saveStateToHistory();
+
+    // Get current property values
+    const attrs = {
+        stroke: editorState.strokeColor,
+        strokeWidth: editorState.strokeWidth,
+        opacity: editorState.shapeOpacity
+    };
+
+    // Handle fill
+    if (editorState.fillTransparent) {
+        attrs.fill = 'none';
+    } else {
+        attrs.fill = editorState.fillColor;
+    }
+
+    // Apply attributes to selected element
+    editorState.selectedElement.attr(attrs);
+
+    // Update the original opacity in data (for hover effects)
+    editorState.selectedElement.data('originalOpacity', editorState.shapeOpacity);
+
+    // Reapply selection opacity effect
+    editorState.selectedElement.attr({ opacity: editorState.shapeOpacity * OPACITY_FACTOR });
+
+    updateStatus('Element properties updated');
 }
 
 // Initialize when DOM is ready
