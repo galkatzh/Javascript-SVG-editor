@@ -183,7 +183,7 @@ function makeElementDraggable(element) {
             // Concatenate original transform with new translation
             var origTransform = this.data('origTransform') || '';
             this.attr({
-                transform: origTransform + (origTransform ? "T" : "t") + dx + "," + dy
+                transform: origTransform + (origTransform ? " t" : "t") + dx + "," + dy
             });
 
             // Update selection box position based on element's new visual position

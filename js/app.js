@@ -348,9 +348,10 @@ function setupToolbar() {
         // Update selected shape if one exists
         if (editorState.selectedElement) {
             const opacity = percent / 100;
-            editorState.selectedElement.attr({ opacity: opacity });
-            // Update the stored original opacity so selection effect works correctly
+            // Store the original opacity value
             editorState.selectedElement.data('originalOpacity', opacity);
+            // Apply selection factor (0.7) since element is currently selected
+            editorState.selectedElement.attr({ opacity: opacity * 0.7 });
             updateStatus(`Shape opacity set to ${percent}%`);
         } else {
             updateStatus(`Opacity set to ${percent}%`);
