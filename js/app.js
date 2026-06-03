@@ -314,6 +314,7 @@ function setupToolbar() {
     const colorPicker = document.getElementById('stroke-color');
     colorPicker.addEventListener('change', (e) => {
         editorState.strokeColor = e.target.value;
+        if (applyToSelection({ stroke: e.target.value }, 'Stroke color')) return;
         updateStatus(`Stroke color changed to ${e.target.value}`);
     });
 
@@ -324,6 +325,7 @@ function setupToolbar() {
         const value = parseInt(e.target.value);
         editorState.strokeWidth = value;
         widthValueDisplay.textContent = value;
+        if (applyToSelection({ strokeWidth: value }, 'Stroke width')) return;
         updateStatus(`Line width changed to ${value}px`);
     });
 
@@ -334,6 +336,7 @@ function setupToolbar() {
         const percent = parseInt(e.target.value);
         editorState.shapeOpacity = percent / 100;
         opacityValueDisplay.textContent = percent;
+        if (applyOpacityToSelection(percent / 100)) return;
         updateStatus(`Opacity set to ${percent}%`);
     });
 
@@ -352,6 +355,7 @@ function setupToolbar() {
             document.getElementById('fill-transparent').checked = false;
             fillColorWrap.classList.remove('disabled');
         }
+        if (applyToSelection({ fill: e.target.value }, 'Fill color')) return;
         updateStatus(`Fill color changed to ${e.target.value}`);
     });
 
@@ -360,6 +364,8 @@ function setupToolbar() {
     fillTransparentCheckbox.addEventListener('change', (e) => {
         editorState.fillTransparent = e.target.checked;
         updateFillColorState();
+        const fill = e.target.checked ? 'none' : editorState.fillColor;
+        if (applyToSelection({ fill: fill }, 'Fill')) return;
         if (e.target.checked) {
             updateStatus('Fill set to transparent');
         } else {
@@ -781,6 +787,8 @@ function handleClearCanvas() {
     if (confirm('Are you sure you want to clear the canvas? This cannot be undone.')) {
         snap.clear();
         editorState.selectedElement = null;
+        editorState.selectedElements = [];
+        syncPropertiesPanel();
         updateStatus('Canvas cleared');
     }
 }
@@ -910,6 +918,7 @@ function deleteSelected() {
 
     editorState.selectedElements = [];
     editorState.selectedElement = null;
+    syncPropertiesPanel();
     updateStatus(`Deleted ${toDelete.length} element(s)`);
 }
 
@@ -991,6 +1000,209 @@ function updateFillColorState() {
     } else {
         fillColorWrap.classList.remove('disabled');
     }
+}
+
+/* ============================================
+   Editing properties of the selected shape(s)
+   The properties panel does double duty: with nothing selected it sets the
+   defaults for the next shape drawn; with a selection it edits those shapes.
+   ============================================ */
+
+/**
+ * Apply an attribute change to every selected shape. Returns true if a
+ * selection existed (and was updated), so callers can skip their "default
+ * changed" status message. Opacity is handled separately because selected
+ * shapes are shown dimmed (see applyOpacityToSelection).
+ * @param {Object} attrs - Snap attributes to set on each selected element
+ * @param {string} label - Human-readable property name for the status bar
+ * @returns {boolean} Whether the change was applied to a selection
+ */
+function applyToSelection(attrs, label) {
+    const selected = editorState.selectedElements;
+    if (selected.length === 0) return false;
+
+    selected.forEach(element => {
+        element.attr(attrs);
+        // Stroke width changes the visual bounds, so keep the box in sync.
+        const selectionBox = element.data('selectionBox');
+        if (selectionBox && typeof updateSelectionBoxPosition === 'function') {
+            updateSelectionBoxPosition(element, selectionBox);
+        }
+    });
+
+    updateStatus(`${label} updated on ${selected.length} shape(s)`);
+    return true;
+}
+
+/**
+ * Apply an opacity change to every selected shape. Selected shapes are rendered
+ * dimmed (opacity × OPACITY_FACTOR) with their true opacity kept in element
+ * data, so we update that data and the displayed (dimmed) value together.
+ * @param {number} opacity - The new opacity (0-1)
+ * @returns {boolean} Whether the change was applied to a selection
+ */
+function applyOpacityToSelection(opacity) {
+    const selected = editorState.selectedElements;
+    if (selected.length === 0) return false;
+
+    selected.forEach(element => {
+        element.data('originalOpacity', opacity);
+        element.attr({ opacity: opacity * OPACITY_FACTOR });
+    });
+
+    updateStatus(`Opacity updated on ${selected.length} shape(s)`);
+    return true;
+}
+
+/**
+ * Reflect the current selection in the properties panel.
+ * - No selection: show the editor defaults (used for the next shape drawn) and
+ *   hide the batch-editing note.
+ * - One shape: populate every control from that shape's own attributes.
+ * - Multiple shapes: populate from the primary shape and show the batch note,
+ *   signalling that edits affect the whole selection.
+ */
+function syncPropertiesPanel() {
+    const selected = editorState.selectedElements;
+    const batchNote = document.getElementById('batch-note');
+    const batchNoteText = document.getElementById('batch-note-text');
+
+    if (selected.length > 1) {
+        batchNoteText.textContent = `Editing ${selected.length} shapes`;
+        batchNote.hidden = false;
+    } else {
+        batchNote.hidden = true;
+    }
+
+    if (selected.length === 0) {
+        populatePanelControls();
+        return;
+    }
+
+    // Adopt the primary shape's properties as the panel/editor values, so the
+    // controls describe what's selected (and new shapes inherit them too).
+    adoptElementProperties(editorState.selectedElement || selected[selected.length - 1]);
+    populatePanelControls();
+}
+
+/**
+ * Copy a shape's style attributes into editorState so the panel can display
+ * them. Unparseable or missing attributes leave the current value untouched.
+ * @param {Snap.Element} element - The shape to read from
+ */
+function adoptElementProperties(element) {
+    // Read effective styles via getComputedStyle: it resolves both presentation
+    // attributes and inline styles (Snap writes stroke-width/linecap into the
+    // style attribute), and sidesteps Snap 0.5.1's attr() getter, which throws
+    // on color-valued attributes (it parses them through a querySelector path).
+    const style = window.getComputedStyle(element.node);
+
+    const stroke = style.stroke;
+    if (stroke && stroke !== 'none') {
+        editorState.strokeColor = colorToHex(stroke);
+    }
+
+    const width = parseFloat(style.strokeWidth);
+    if (!isNaN(width)) {
+        editorState.strokeWidth = clampStrokeWidth(width);
+    }
+
+    const fill = style.fill;
+    if (!fill || fill === 'none') {
+        editorState.fillTransparent = true;
+    } else {
+        editorState.fillTransparent = false;
+        editorState.fillColor = colorToHex(fill);
+    }
+
+    // Selected shapes are displayed dimmed; their true opacity lives in data.
+    // Fall back to the computed opacity only when the data hasn't been set.
+    let opacity = element.data('originalOpacity');
+    if (opacity === undefined || opacity === null) {
+        opacity = style.opacity;
+    }
+    opacity = parseFloat(opacity);
+    if (!isNaN(opacity)) {
+        editorState.shapeOpacity = clamp01(opacity);
+    }
+}
+
+/**
+ * Push the current editorState style values into the panel controls.
+ */
+function populatePanelControls() {
+    document.getElementById('stroke-color').value = editorState.strokeColor;
+    setStrokeWidthControl(editorState.strokeWidth);
+    document.getElementById('fill-color').value = editorState.fillColor;
+    document.getElementById('fill-transparent').checked = editorState.fillTransparent;
+    updateFillColorState();
+    setOpacityControl(Math.round(editorState.shapeOpacity * 100));
+}
+
+/**
+ * Set the stroke-width slider and its numeric readout together.
+ * @param {number} value - Stroke width in pixels
+ */
+function setStrokeWidthControl(value) {
+    document.getElementById('stroke-width').value = value;
+    document.getElementById('stroke-width-value').textContent = value;
+}
+
+/**
+ * Set the opacity slider and its numeric readout together.
+ * @param {number} percent - Opacity as a percentage (0-100)
+ */
+function setOpacityControl(percent) {
+    document.getElementById('shape-opacity').value = percent;
+    document.getElementById('opacity-value').textContent = percent;
+}
+
+/**
+ * Normalize any CSS color string to a #rrggbb hex value so it can populate an
+ * <input type="color">. Named colors and rgb()/rgba() are converted via a
+ * canvas context. Falls back to black when the color can't be parsed.
+ * @param {string} color - A CSS color (hex, name, rgb(), ...)
+ * @returns {string} A #rrggbb hex color
+ */
+function colorToHex(color) {
+    if (!color) return '#000000';
+    if (/^#[0-9a-f]{6}$/i.test(color)) return color.toLowerCase();
+
+    // Let the browser normalize the color by assigning it to a canvas context.
+    const ctx = colorToHex._ctx ||
+        (colorToHex._ctx = document.createElement('canvas').getContext('2d'));
+    ctx.fillStyle = '#000000';
+    ctx.fillStyle = color;
+    const normalized = ctx.fillStyle;
+
+    if (/^#[0-9a-f]{6}$/i.test(normalized)) return normalized.toLowerCase();
+
+    // rgb()/rgba() form → hex
+    const parts = normalized.match(/\d+/g);
+    if (parts && parts.length >= 3) {
+        return '#' + parts.slice(0, 3)
+            .map(n => parseInt(n, 10).toString(16).padStart(2, '0'))
+            .join('');
+    }
+    return '#000000';
+}
+
+/**
+ * Clamp a stroke width to the slider's supported range (1-50, integer).
+ * @param {number} w - Raw stroke width
+ * @returns {number}
+ */
+function clampStrokeWidth(w) {
+    return Math.max(1, Math.min(50, Math.round(w)));
+}
+
+/**
+ * Clamp a value to the 0-1 range.
+ * @param {number} v - Raw value
+ * @returns {number}
+ */
+function clamp01(v) {
+    return Math.max(0, Math.min(1, v));
 }
 
 // Initialize when DOM is ready
