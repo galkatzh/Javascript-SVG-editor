@@ -13,11 +13,17 @@ const editorState = {
     shapeOpacity: 1.0,              // Shape opacity (0-1)
     customWidth: null,              // Custom canvas width (null = auto)
     customHeight: null,             // Custom canvas height (null = auto)
-    selectedElement: null,          // Currently selected shape
+    selectedElement: null,          // Primary selected shape (last of selection)
+    selectedElements: [],           // All currently selected shapes
     isDrawing: false,               // Drawing state flag
     startPoint: { x: 0, y: 0 },    // Start point for drawing
     currentShape: null,             // Temporary shape while drawing
-    scribblePoints: []              // Points for scribble tool
+    scribblePoints: [],             // Points for scribble tool
+    isMarqueeSelecting: false,      // Marquee (rubber-band) selection in progress
+    marqueeBox: null,               // Temporary marquee rectangle element
+    isDeleting: false,              // Sweep-to-delete gesture in progress
+    deleteSet: new Set(),           // Elements marked during a delete sweep
+    suppressNextCanvasClick: false  // Skip one canvas-click deselect (after marquee)
 };
 
 // Snap.svg instance
@@ -497,9 +503,24 @@ function handleMouseDown(e) {
 
     const tool = editorState.activeTool;
 
-    // Handle different tools
-    if (tool === 'select' || tool === 'delete') {
-        // Selection and deletion handled by click on elements (Phase 3)
+    // Select tool: pressing empty canvas starts a marquee (rubber-band) selection.
+    // Pressing a shape is handled by that shape's own drag/click handlers.
+    if (tool === 'select') {
+        if (e.target.id === 'svg-canvas') {
+            clearSelection();
+            editorState.isMarqueeSelecting = true;
+            editorState.marqueeBox = drawMarquee(snap, point);
+        }
+        return;
+    }
+
+    // Delete tool: begin a press-and-sweep gesture. Each shape the cursor
+    // passes over fades and is queued for deletion on release.
+    if (tool === 'delete') {
+        editorState.isDeleting = true;
+        editorState.deleteSet.clear();
+        markElementForDeletion(elementAtPoint(e.clientX, e.clientY));
+        updateStatus('Sweep over shapes to delete, release to confirm');
         return;
     }
 
@@ -549,6 +570,18 @@ function handleMouseMove(e) {
     // Update cursor position in status bar
     updateCursorPosition(point);
 
+    // Grow the marquee selection rectangle
+    if (editorState.isMarqueeSelecting) {
+        updateMarquee(editorState.marqueeBox, editorState.startPoint, point);
+        return;
+    }
+
+    // Sweep-to-delete: fade whatever shape is under the cursor
+    if (editorState.isDeleting) {
+        markElementForDeletion(elementAtPoint(e.clientX, e.clientY));
+        return;
+    }
+
     if (!editorState.isDrawing) return;
 
     const tool = editorState.activeTool;
@@ -587,6 +620,31 @@ function handleMouseMove(e) {
  * Handle mouse up on canvas
  */
 function handleMouseUp(e) {
+    // Finish a marquee selection: select everything the box intersects
+    if (editorState.isMarqueeSelecting) {
+        const endPoint = getSVGCoordinates(e);
+        if (editorState.marqueeBox) {
+            editorState.marqueeBox.remove();
+            editorState.marqueeBox = null;
+        }
+        editorState.isMarqueeSelecting = false;
+        selectElementsInRect(
+            editorState.startPoint.x, editorState.startPoint.y,
+            endPoint.x, endPoint.y
+        );
+        // The drag ends with a synthetic click on the canvas; don't deselect.
+        editorState.suppressNextCanvasClick = true;
+        return;
+    }
+
+    // Finish a sweep-to-delete: remove all marked shapes
+    if (editorState.isDeleting) {
+        markElementForDeletion(elementAtPoint(e.clientX, e.clientY));
+        editorState.isDeleting = false;
+        commitDeletion();
+        return;
+    }
+
     if (!editorState.isDrawing) return;
 
     const point = getSVGCoordinates(e);
@@ -634,7 +692,8 @@ function handleMouseUp(e) {
  * Handle mouse leave canvas
  */
 function handleMouseLeave(e) {
-    if (editorState.isDrawing) {
+    // Commit any in-progress gesture when the cursor leaves the canvas
+    if (editorState.isDrawing || editorState.isMarqueeSelecting || editorState.isDeleting) {
         handleMouseUp(e);
     }
     updateCursorPosition(null);
@@ -815,18 +874,20 @@ function getSVGCoordinates(event) {
  * Delete selected element
  */
 function deleteSelected() {
-    if (editorState.selectedElement) {
-        // Remove selection box if it exists
-        const selectionBox = editorState.selectedElement.data('selectionBox');
+    const toDelete = editorState.selectedElements.slice();
+    if (toDelete.length === 0) return;
+
+    toDelete.forEach(element => {
+        const selectionBox = element.data('selectionBox');
         if (selectionBox) {
             selectionBox.remove();
         }
+        element.remove();
+    });
 
-        // Remove the element
-        editorState.selectedElement.remove();
-        editorState.selectedElement = null;
-        updateStatus('Element deleted');
-    }
+    editorState.selectedElements = [];
+    editorState.selectedElement = null;
+    updateStatus(`Deleted ${toDelete.length} element(s)`);
 }
 
 /**
