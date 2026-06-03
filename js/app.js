@@ -13,19 +13,11 @@ const editorState = {
     shapeOpacity: 1.0,              // Shape opacity (0-1)
     customWidth: null,              // Custom canvas width (null = auto)
     customHeight: null,             // Custom canvas height (null = auto)
-    selectedElement: null,          // Primary selected shape (last of selection)
-    selectedElements: [],           // All currently selected shapes
+    selectedElement: null,          // Currently selected shape
     isDrawing: false,               // Drawing state flag
     startPoint: { x: 0, y: 0 },    // Start point for drawing
     currentShape: null,             // Temporary shape while drawing
-    scribblePoints: [],             // Points for scribble tool
-    isMarqueeSelecting: false,      // Marquee (rubber-band) selection in progress
-    marqueeBox: null,               // Temporary marquee rectangle element
-    isMovingSelection: false,       // Group move (drag) of the selection in progress
-    moveOccurred: false,            // Whether the current move actually shifted shapes
-    isDeleting: false,              // Sweep-to-delete gesture in progress
-    deleteSet: new Set(),           // Elements marked during a delete sweep
-    suppressNextCanvasClick: false  // Skip one canvas-click deselect (after marquee)
+    scribblePoints: []              // Points for scribble tool
 };
 
 // Snap.svg instance
@@ -37,96 +29,22 @@ let snap = null;
 function init() {
     console.log('Initializing SVG Editor...');
 
-    // Snap.svg is loaded from a CDN. If that request fails (offline, blocked
-    // network, CDN outage) the library is missing and the editor cannot work.
-    // Detect it up front and show a visible message instead of failing silently.
-    if (typeof Snap === 'undefined') {
-        showFatalError(
-            'Failed to load Snap.svg',
-            'The drawing library could not be loaded from the CDN. ' +
-            'Check your internet connection and reload the page.'
-        );
-        console.error('Snap.svg is not available - aborting initialization.');
-        return;
-    }
+    // Initialize Snap.svg
+    const svgCanvas = document.getElementById('svg-canvas');
+    snap = Snap('#svg-canvas');
 
-    try {
-        // Initialize Snap.svg
-        const svgCanvas = document.getElementById('svg-canvas');
-        snap = Snap('#svg-canvas');
+    // Set SVG dimensions to match container
+    resizeSVGCanvas();
 
-        // Set SVG dimensions to match container
-        resizeSVGCanvas();
+    // Setup event listeners
+    setupToolbar();
+    setupCanvas();
+    setupWindowEvents();
 
-        // Setup event listeners
-        setupToolbar();
-        setupCanvas();
-        setupWindowEvents();
+    // Update status
+    updateStatus('Ready - Select a tool to start drawing');
 
-        // Update status
-        updateStatus('Ready - Select a tool to start drawing');
-
-        console.log('SVG Editor initialized successfully!');
-    } catch (error) {
-        showFatalError(
-            'Failed to start the editor',
-            'Something went wrong while initializing the canvas. ' +
-            'Please reload the page.'
-        );
-        console.error('Initialization failed:', error);
-    }
-}
-
-/**
- * Show a visible, blocking error banner when the editor cannot start.
- * Used when a critical dependency (e.g. Snap.svg) is missing.
- */
-function showFatalError(title, detail) {
-    // Avoid stacking multiple banners
-    if (document.getElementById('fatal-error')) {
-        return;
-    }
-
-    const banner = document.createElement('div');
-    banner.id = 'fatal-error';
-    banner.setAttribute('role', 'alert');
-
-    const heading = document.createElement('strong');
-    heading.textContent = title;
-
-    const message = document.createElement('span');
-    message.textContent = detail;
-
-    const reloadBtn = document.createElement('button');
-    reloadBtn.type = 'button';
-    reloadBtn.textContent = 'Reload';
-    reloadBtn.addEventListener('click', () => window.location.reload());
-
-    banner.appendChild(heading);
-    banner.appendChild(message);
-    banner.appendChild(reloadBtn);
-    document.body.appendChild(banner);
-
-    // Reflect the failure in the status bar too
-    updateStatus(title);
-}
-
-/**
- * Get all drawable content elements, excluding UI helper rects (the selection
- * boxes and the marquee box). Those are not content: they must not affect
- * canvas sizing and must not be shifted during normalization, or they desync
- * from the shapes they annotate.
- * @returns {Array<Snap.Element>}
- */
-function getContentElements() {
-    const elements = [];
-    snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text').forEach(el => {
-        if (!el.node.classList.contains('selection-box') &&
-            !el.node.classList.contains('marquee-box')) {
-            elements.push(el);
-        }
-    });
-    return elements;
+    console.log('SVG Editor initialized successfully!');
 }
 
 /**
@@ -145,8 +63,8 @@ function resizeSVGCanvas() {
     const requestedWidth = width;
     const requestedHeight = height;
 
-    // Get all drawable content elements (excluding selection/marquee helper rects)
-    const elements = getContentElements();
+    // Get all drawable elements
+    const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text');
 
     if (elements.length > 0) {
         // Calculate the bounding box of all elements (accounting for transforms)
@@ -157,15 +75,27 @@ function resizeSVGCanvas() {
 
         elements.forEach(element => {
             try {
-                // Snap's getBBox() already accounts for the element's transform,
-                // so it IS the visual bounding box. (Re-applying the transform
-                // matrix here would double-count it, making the canvas grow by an
-                // extra drag-distance and shapes appear to jump on resize.)
+                // Get the bounding box and transform matrix
                 const bbox = element.getBBox();
-                maxX = Math.max(maxX, bbox.x + bbox.width);
-                maxY = Math.max(maxY, bbox.y + bbox.height);
-                minX = Math.min(minX, bbox.x);
-                minY = Math.min(minY, bbox.y);
+                const matrix = element.transform().localMatrix;
+
+                // Calculate the four corners of the bounding box
+                const corners = [
+                    { x: bbox.x, y: bbox.y },
+                    { x: bbox.x + bbox.width, y: bbox.y },
+                    { x: bbox.x, y: bbox.y + bbox.height },
+                    { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+                ];
+
+                // Transform each corner and find min/max
+                corners.forEach(corner => {
+                    const transformedX = matrix.x(corner.x, corner.y);
+                    const transformedY = matrix.y(corner.x, corner.y);
+                    maxX = Math.max(maxX, transformedX);
+                    maxY = Math.max(maxY, transformedY);
+                    minX = Math.min(minX, transformedX);
+                    minY = Math.min(minY, transformedY);
+                });
             } catch (e) {
                 // Skip elements that don't have a bounding box
                 console.warn('Could not get bounding box for element:', element);
@@ -242,8 +172,8 @@ function resizeSVGCanvas() {
  * This prevents negative coordinates that cause issues during export
  */
 function normalizeCanvasCoordinates() {
-    // Get all drawable content elements (excluding selection/marquee helper rects)
-    const elements = getContentElements();
+    // Get all drawable elements
+    const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text');
 
     if (elements.length === 0) {
         return; // No elements to normalize
@@ -255,11 +185,25 @@ function normalizeCanvasCoordinates() {
 
     elements.forEach(element => {
         try {
-            // Snap's getBBox() already includes the element's transform, so it is
-            // the visual bounding box directly (no need to re-apply the matrix).
+            // Get the bounding box and transform matrix
             const bbox = element.getBBox();
-            minX = Math.min(minX, bbox.x);
-            minY = Math.min(minY, bbox.y);
+            const matrix = element.transform().localMatrix;
+
+            // Calculate the four corners of the bounding box
+            const corners = [
+                { x: bbox.x, y: bbox.y },
+                { x: bbox.x + bbox.width, y: bbox.y },
+                { x: bbox.x, y: bbox.y + bbox.height },
+                { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
+            ];
+
+            // Transform each corner and find the minimum X and Y
+            corners.forEach(corner => {
+                const transformedX = matrix.x(corner.x, corner.y);
+                const transformedY = matrix.y(corner.x, corner.y);
+                minX = Math.min(minX, transformedX);
+                minY = Math.min(minY, transformedY);
+            });
         } catch (e) {
             // Skip elements that don't have a bounding box
             console.warn('Could not get bounding box for element:', element);
@@ -497,40 +441,9 @@ function handleMouseDown(e) {
 
     const tool = editorState.activeTool;
 
-    // Select tool
-    if (tool === 'select') {
-        // Press inside the current selection → move the whole group, even if the
-        // press landed on empty canvas within the selection's bounds.
-        if (editorState.selectedElements.length > 0 && isPointInSelection(point)) {
-            beginSelectionMove();
-            return;
-        }
-
-        // Press on an (unselected) shape → select it and start moving it.
-        const shapeNode = drawableShapeNode(e.target);
-        if (shapeNode) {
-            const element = findSnapElement(shapeNode);
-            if (element) {
-                selectElement(element);
-                beginSelectionMove();
-                return;
-            }
-        }
-
-        // Press on empty canvas outside any selection → start a marquee selection.
-        clearSelection();
-        editorState.isMarqueeSelecting = true;
-        editorState.marqueeBox = drawMarquee(snap, point);
-        return;
-    }
-
-    // Delete tool: begin a press-and-sweep gesture. Each shape the cursor
-    // passes over fades and is queued for deletion on release.
-    if (tool === 'delete') {
-        editorState.isDeleting = true;
-        editorState.deleteSet.clear();
-        markElementForDeletion(elementAtPoint(e.clientX, e.clientY));
-        updateStatus('Sweep over shapes to delete, release to confirm');
+    // Handle different tools
+    if (tool === 'select' || tool === 'delete') {
+        // Selection and deletion handled by click on elements (Phase 3)
         return;
     }
 
@@ -580,24 +493,6 @@ function handleMouseMove(e) {
     // Update cursor position in status bar
     updateCursorPosition(point);
 
-    // Move the current selection (group drag)
-    if (editorState.isMovingSelection) {
-        updateSelectionMove(point);
-        return;
-    }
-
-    // Grow the marquee selection rectangle
-    if (editorState.isMarqueeSelecting) {
-        updateMarquee(editorState.marqueeBox, editorState.startPoint, point);
-        return;
-    }
-
-    // Sweep-to-delete: fade whatever shape is under the cursor
-    if (editorState.isDeleting) {
-        markElementForDeletion(elementAtPoint(e.clientX, e.clientY));
-        return;
-    }
-
     if (!editorState.isDrawing) return;
 
     const tool = editorState.activeTool;
@@ -636,37 +531,6 @@ function handleMouseMove(e) {
  * Handle mouse up on canvas
  */
 function handleMouseUp(e) {
-    // Finish a group move
-    if (editorState.isMovingSelection) {
-        endSelectionMove();
-        return;
-    }
-
-    // Finish a marquee selection: select everything the box intersects
-    if (editorState.isMarqueeSelecting) {
-        const endPoint = getSVGCoordinates(e);
-        if (editorState.marqueeBox) {
-            editorState.marqueeBox.remove();
-            editorState.marqueeBox = null;
-        }
-        editorState.isMarqueeSelecting = false;
-        selectElementsInRect(
-            editorState.startPoint.x, editorState.startPoint.y,
-            endPoint.x, endPoint.y
-        );
-        // The drag ends with a synthetic click on the canvas; don't deselect.
-        editorState.suppressNextCanvasClick = true;
-        return;
-    }
-
-    // Finish a sweep-to-delete: remove all marked shapes
-    if (editorState.isDeleting) {
-        markElementForDeletion(elementAtPoint(e.clientX, e.clientY));
-        editorState.isDeleting = false;
-        commitDeletion();
-        return;
-    }
-
     if (!editorState.isDrawing) return;
 
     const point = getSVGCoordinates(e);
@@ -714,9 +578,7 @@ function handleMouseUp(e) {
  * Handle mouse leave canvas
  */
 function handleMouseLeave(e) {
-    // Commit any in-progress gesture when the cursor leaves the canvas
-    if (editorState.isDrawing || editorState.isMarqueeSelecting ||
-        editorState.isDeleting || editorState.isMovingSelection) {
+    if (editorState.isDrawing) {
         handleMouseUp(e);
     }
     updateCursorPosition(null);
@@ -897,20 +759,18 @@ function getSVGCoordinates(event) {
  * Delete selected element
  */
 function deleteSelected() {
-    const toDelete = editorState.selectedElements.slice();
-    if (toDelete.length === 0) return;
-
-    toDelete.forEach(element => {
-        const selectionBox = element.data('selectionBox');
+    if (editorState.selectedElement) {
+        // Remove selection box if it exists
+        const selectionBox = editorState.selectedElement.data('selectionBox');
         if (selectionBox) {
             selectionBox.remove();
         }
-        element.remove();
-    });
 
-    editorState.selectedElements = [];
-    editorState.selectedElement = null;
-    updateStatus(`Deleted ${toDelete.length} element(s)`);
+        // Remove the element
+        editorState.selectedElement.remove();
+        editorState.selectedElement = null;
+        updateStatus('Element deleted');
+    }
 }
 
 /**

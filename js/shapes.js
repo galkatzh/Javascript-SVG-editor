@@ -172,39 +172,6 @@ function updateScribble(path, points) {
 }
 
 /**
- * Draw a marquee (rubber-band) selection rectangle
- * @param {Object} snap - Snap.svg instance
- * @param {Object} start - Start corner {x, y}
- * @returns {Object} Snap.svg rect element
- */
-function drawMarquee(snap, start) {
-    const marquee = snap.rect(start.x, start.y, 0, 0);
-    marquee.attr({
-        fill: 'rgba(0, 170, 255, 0.08)',
-        stroke: '#00aaff',
-        strokeWidth: 1,
-        strokeDasharray: '5,5',
-        class: 'marquee-box'
-    });
-    return marquee;
-}
-
-/**
- * Update the marquee rectangle to span from start to the current point
- * @param {Object} marquee - Snap.svg rect element
- * @param {Object} start - Start corner {x, y}
- * @param {Object} current - Current corner {x, y}
- */
-function updateMarquee(marquee, start, current) {
-    marquee.attr({
-        x: Math.min(start.x, current.x),
-        y: Math.min(start.y, current.y),
-        width: Math.abs(current.x - start.x),
-        height: Math.abs(current.y - start.y)
-    });
-}
-
-/**
  * Get default drawing attributes
  * @param {string} color - Stroke color
  * @param {number} width - Stroke width
