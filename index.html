@@ -60,6 +60,14 @@
 
         <!-- Floating Properties Panel (Bottom Right) -->
         <div id="properties-panel" class="floating-panel">
+            <!-- Shown only while editing multiple shapes at once -->
+            <div id="batch-note" class="batch-note" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="3" y="8" width="13" height="13" rx="2"/>
+                    <path d="M8 8V5a2 2 0 012-2h9a2 2 0 012 2v9a2 2 0 01-2 2h-3"/>
+                </svg>
+                <span id="batch-note-text">Batch editing</span>
+            </div>
             <div class="prop-group">
                 <div class="color-input-wrap" title="Stroke Color">
                     <input type="color" id="stroke-color" value="#000000">

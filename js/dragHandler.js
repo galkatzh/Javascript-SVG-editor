@@ -106,6 +106,18 @@ function clearSelection() {
     editorState.selectedElements.forEach(removeSelectionVisual);
     editorState.selectedElements = [];
     editorState.selectedElement = null;
+    refreshPropertiesPanel();
+}
+
+/**
+ * Re-sync the properties panel with the current selection, if that hook is
+ * available (defined in app.js). Kept as a thin guard so dragHandler.js stays
+ * usable even if loaded without the panel logic.
+ */
+function refreshPropertiesPanel() {
+    if (typeof syncPropertiesPanel === 'function') {
+        syncPropertiesPanel();
+    }
 }
 
 /**
@@ -118,6 +130,7 @@ function selectElement(element) {
     editorState.selectedElement = element;
     editorState.selectedElements = [element];
     applySelectionVisual(element);
+    refreshPropertiesPanel();
 
     updateStatus('Element selected - Drag to move, Delete to remove');
 }
@@ -139,6 +152,7 @@ function selectElements(elements) {
     // Keep selectedElement pointing at one element so single-element
     // operations (drag-to-move, Delete key) still have a target.
     editorState.selectedElement = elements[elements.length - 1];
+    refreshPropertiesPanel();
 
     updateStatus(`${elements.length} element(s) selected`);
 }
@@ -408,6 +422,7 @@ function deleteElement(element) {
 
     // Delete the element
     element.remove();
+    refreshPropertiesPanel();
     updateStatus('Element deleted');
 }
 
@@ -482,6 +497,7 @@ function commitDeletion() {
     });
 
     editorState.deleteSet.clear();
+    refreshPropertiesPanel();
     updateStatus(count > 0 ? `Deleted ${count} element(s)` : 'Nothing deleted');
 }
 

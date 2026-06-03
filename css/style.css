@@ -230,6 +230,29 @@ body {
     gap: 6px;
 }
 
+/* Batch editing note (shown while multiple shapes are selected) */
+.batch-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.batch-note svg {
+    width: 16px;
+    height: 16px;
+}
+
+.batch-note[hidden] {
+    display: none;
+}
+
 .color-input-wrap {
     position: relative;
     width: 36px;
