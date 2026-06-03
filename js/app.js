@@ -112,6 +112,24 @@ function showFatalError(title, detail) {
 }
 
 /**
+ * Get all drawable content elements, excluding UI helper rects (the selection
+ * boxes and the marquee box). Those are not content: they must not affect
+ * canvas sizing and must not be shifted during normalization, or they desync
+ * from the shapes they annotate.
+ * @returns {Array<Snap.Element>}
+ */
+function getContentElements() {
+    const elements = [];
+    snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text').forEach(el => {
+        if (!el.node.classList.contains('selection-box') &&
+            !el.node.classList.contains('marquee-box')) {
+            elements.push(el);
+        }
+    });
+    return elements;
+}
+
+/**
  * Resize SVG canvas to match container or custom dimensions
  * Ensures canvas grows to bottom and right, keeping 0,0 at top-left
  */
@@ -127,8 +145,8 @@ function resizeSVGCanvas() {
     const requestedWidth = width;
     const requestedHeight = height;
 
-    // Get all drawable elements
-    const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text');
+    // Get all drawable content elements (excluding selection/marquee helper rects)
+    const elements = getContentElements();
 
     if (elements.length > 0) {
         // Calculate the bounding box of all elements (accounting for transforms)
@@ -139,27 +157,15 @@ function resizeSVGCanvas() {
 
         elements.forEach(element => {
             try {
-                // Get the bounding box and transform matrix
+                // Snap's getBBox() already accounts for the element's transform,
+                // so it IS the visual bounding box. (Re-applying the transform
+                // matrix here would double-count it, making the canvas grow by an
+                // extra drag-distance and shapes appear to jump on resize.)
                 const bbox = element.getBBox();
-                const matrix = element.transform().localMatrix;
-
-                // Calculate the four corners of the bounding box
-                const corners = [
-                    { x: bbox.x, y: bbox.y },
-                    { x: bbox.x + bbox.width, y: bbox.y },
-                    { x: bbox.x, y: bbox.y + bbox.height },
-                    { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
-                ];
-
-                // Transform each corner and find min/max
-                corners.forEach(corner => {
-                    const transformedX = matrix.x(corner.x, corner.y);
-                    const transformedY = matrix.y(corner.x, corner.y);
-                    maxX = Math.max(maxX, transformedX);
-                    maxY = Math.max(maxY, transformedY);
-                    minX = Math.min(minX, transformedX);
-                    minY = Math.min(minY, transformedY);
-                });
+                maxX = Math.max(maxX, bbox.x + bbox.width);
+                maxY = Math.max(maxY, bbox.y + bbox.height);
+                minX = Math.min(minX, bbox.x);
+                minY = Math.min(minY, bbox.y);
             } catch (e) {
                 // Skip elements that don't have a bounding box
                 console.warn('Could not get bounding box for element:', element);
@@ -236,8 +242,8 @@ function resizeSVGCanvas() {
  * This prevents negative coordinates that cause issues during export
  */
 function normalizeCanvasCoordinates() {
-    // Get all drawable elements
-    const elements = snap.selectAll('line, circle, rect, path, polyline, polygon, ellipse, text');
+    // Get all drawable content elements (excluding selection/marquee helper rects)
+    const elements = getContentElements();
 
     if (elements.length === 0) {
         return; // No elements to normalize
@@ -249,25 +255,11 @@ function normalizeCanvasCoordinates() {
 
     elements.forEach(element => {
         try {
-            // Get the bounding box and transform matrix
+            // Snap's getBBox() already includes the element's transform, so it is
+            // the visual bounding box directly (no need to re-apply the matrix).
             const bbox = element.getBBox();
-            const matrix = element.transform().localMatrix;
-
-            // Calculate the four corners of the bounding box
-            const corners = [
-                { x: bbox.x, y: bbox.y },
-                { x: bbox.x + bbox.width, y: bbox.y },
-                { x: bbox.x, y: bbox.y + bbox.height },
-                { x: bbox.x + bbox.width, y: bbox.y + bbox.height }
-            ];
-
-            // Transform each corner and find the minimum X and Y
-            corners.forEach(corner => {
-                const transformedX = matrix.x(corner.x, corner.y);
-                const transformedY = matrix.y(corner.x, corner.y);
-                minX = Math.min(minX, transformedX);
-                minY = Math.min(minY, transformedY);
-            });
+            minX = Math.min(minX, bbox.x);
+            minY = Math.min(minY, bbox.y);
         } catch (e) {
             // Skip elements that don't have a bounding box
             console.warn('Could not get bounding box for element:', element);
