@@ -29,22 +29,78 @@ let snap = null;
 function init() {
     console.log('Initializing SVG Editor...');
 
-    // Initialize Snap.svg
-    const svgCanvas = document.getElementById('svg-canvas');
-    snap = Snap('#svg-canvas');
+    // Snap.svg is loaded from a CDN. If that request fails (offline, blocked
+    // network, CDN outage) the library is missing and the editor cannot work.
+    // Detect it up front and show a visible message instead of failing silently.
+    if (typeof Snap === 'undefined') {
+        showFatalError(
+            'Failed to load Snap.svg',
+            'The drawing library could not be loaded from the CDN. ' +
+            'Check your internet connection and reload the page.'
+        );
+        console.error('Snap.svg is not available - aborting initialization.');
+        return;
+    }
 
-    // Set SVG dimensions to match container
-    resizeSVGCanvas();
+    try {
+        // Initialize Snap.svg
+        const svgCanvas = document.getElementById('svg-canvas');
+        snap = Snap('#svg-canvas');
 
-    // Setup event listeners
-    setupToolbar();
-    setupCanvas();
-    setupWindowEvents();
+        // Set SVG dimensions to match container
+        resizeSVGCanvas();
 
-    // Update status
-    updateStatus('Ready - Select a tool to start drawing');
+        // Setup event listeners
+        setupToolbar();
+        setupCanvas();
+        setupWindowEvents();
 
-    console.log('SVG Editor initialized successfully!');
+        // Update status
+        updateStatus('Ready - Select a tool to start drawing');
+
+        console.log('SVG Editor initialized successfully!');
+    } catch (error) {
+        showFatalError(
+            'Failed to start the editor',
+            'Something went wrong while initializing the canvas. ' +
+            'Please reload the page.'
+        );
+        console.error('Initialization failed:', error);
+    }
+}
+
+/**
+ * Show a visible, blocking error banner when the editor cannot start.
+ * Used when a critical dependency (e.g. Snap.svg) is missing.
+ */
+function showFatalError(title, detail) {
+    // Avoid stacking multiple banners
+    if (document.getElementById('fatal-error')) {
+        return;
+    }
+
+    const banner = document.createElement('div');
+    banner.id = 'fatal-error';
+    banner.setAttribute('role', 'alert');
+
+    const heading = document.createElement('strong');
+    heading.textContent = title;
+
+    const message = document.createElement('span');
+    message.textContent = detail;
+
+    const reloadBtn = document.createElement('button');
+    reloadBtn.type = 'button';
+    reloadBtn.textContent = 'Reload';
+    reloadBtn.addEventListener('click', () => window.location.reload());
+
+    banner.appendChild(heading);
+    banner.appendChild(message);
+    banner.appendChild(reloadBtn);
+    document.body.appendChild(banner);
+
+    // Reflect the failure in the status bar too
+    updateStatus(title);
 }
 
 /**
