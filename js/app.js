@@ -21,6 +21,8 @@ const editorState = {
     scribblePoints: [],             // Points for scribble tool
     isMarqueeSelecting: false,      // Marquee (rubber-band) selection in progress
     marqueeBox: null,               // Temporary marquee rectangle element
+    isMovingSelection: false,       // Group move (drag) of the selection in progress
+    moveOccurred: false,            // Whether the current move actually shifted shapes
     isDeleting: false,              // Sweep-to-delete gesture in progress
     deleteSet: new Set(),           // Elements marked during a delete sweep
     suppressNextCanvasClick: false  // Skip one canvas-click deselect (after marquee)
@@ -503,14 +505,30 @@ function handleMouseDown(e) {
 
     const tool = editorState.activeTool;
 
-    // Select tool: pressing empty canvas starts a marquee (rubber-band) selection.
-    // Pressing a shape is handled by that shape's own drag/click handlers.
+    // Select tool
     if (tool === 'select') {
-        if (e.target.id === 'svg-canvas') {
-            clearSelection();
-            editorState.isMarqueeSelecting = true;
-            editorState.marqueeBox = drawMarquee(snap, point);
+        // Press inside the current selection → move the whole group, even if the
+        // press landed on empty canvas within the selection's bounds.
+        if (editorState.selectedElements.length > 0 && isPointInSelection(point)) {
+            beginSelectionMove();
+            return;
         }
+
+        // Press on an (unselected) shape → select it and start moving it.
+        const shapeNode = drawableShapeNode(e.target);
+        if (shapeNode) {
+            const element = findSnapElement(shapeNode);
+            if (element) {
+                selectElement(element);
+                beginSelectionMove();
+                return;
+            }
+        }
+
+        // Press on empty canvas outside any selection → start a marquee selection.
+        clearSelection();
+        editorState.isMarqueeSelecting = true;
+        editorState.marqueeBox = drawMarquee(snap, point);
         return;
     }
 
@@ -570,6 +588,12 @@ function handleMouseMove(e) {
     // Update cursor position in status bar
     updateCursorPosition(point);
 
+    // Move the current selection (group drag)
+    if (editorState.isMovingSelection) {
+        updateSelectionMove(point);
+        return;
+    }
+
     // Grow the marquee selection rectangle
     if (editorState.isMarqueeSelecting) {
         updateMarquee(editorState.marqueeBox, editorState.startPoint, point);
@@ -620,6 +644,12 @@ function handleMouseMove(e) {
  * Handle mouse up on canvas
  */
 function handleMouseUp(e) {
+    // Finish a group move
+    if (editorState.isMovingSelection) {
+        endSelectionMove();
+        return;
+    }
+
     // Finish a marquee selection: select everything the box intersects
     if (editorState.isMarqueeSelecting) {
         const endPoint = getSVGCoordinates(e);
@@ -693,7 +723,8 @@ function handleMouseUp(e) {
  */
 function handleMouseLeave(e) {
     // Commit any in-progress gesture when the cursor leaves the canvas
-    if (editorState.isDrawing || editorState.isMarqueeSelecting || editorState.isDeleting) {
+    if (editorState.isDrawing || editorState.isMarqueeSelecting ||
+        editorState.isDeleting || editorState.isMovingSelection) {
         handleMouseUp(e);
     }
     updateCursorPosition(null);

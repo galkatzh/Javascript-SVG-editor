@@ -177,6 +177,111 @@ function selectElementsInRect(x1, y1, x2, y2) {
 }
 
 /**
+ * Map a DOM node back to its Snap element wrapper.
+ * @param {Element} node - The DOM node
+ * @returns {Snap.Element|null} The matching Snap element, or null
+ */
+function findSnapElement(node) {
+    const elements = snap.selectAll(DRAWABLE_SELECTOR);
+    for (let i = 0; i < elements.length; i++) {
+        if (elements[i].node === node) {
+            return elements[i];
+        }
+    }
+    return null;
+}
+
+/**
+ * Return the node if it is a selectable drawable shape (not a helper rect or
+ * the canvas background), otherwise null.
+ * @param {Element} node - The DOM node to test
+ * @returns {Element|null}
+ */
+function drawableShapeNode(node) {
+    if (!node || !node.tagName) return null;
+    const drawable = ['line', 'circle', 'rect', 'path', 'polyline', 'polygon', 'ellipse'];
+    if (drawable.indexOf(node.tagName.toLowerCase()) === -1) return null;
+    if (node.classList.contains('selection-box') || node.classList.contains('marquee-box')) {
+        return null;
+    }
+    return node;
+}
+
+/**
+ * Whether a point (in SVG coords) lies within the current selection's bounding
+ * region: the union of the selected elements' visual bounding boxes (padded to
+ * match the dashed selection outline).
+ * @param {Object} point - Point {x, y} in SVG coordinates
+ * @returns {boolean}
+ */
+function isPointInSelection(point) {
+    if (editorState.selectedElements.length === 0) return false;
+
+    let left = Infinity, top = Infinity, right = -Infinity, bottom = -Infinity;
+    editorState.selectedElements.forEach(element => {
+        const b = getVisualBBox(element);
+        left = Math.min(left, b.x);
+        top = Math.min(top, b.y);
+        right = Math.max(right, b.x + b.width);
+        bottom = Math.max(bottom, b.y + b.height);
+    });
+
+    const pad = 5; // matches the selection box padding
+    return point.x >= left - pad && point.x <= right + pad &&
+           point.y >= top - pad && point.y <= bottom + pad;
+}
+
+/**
+ * Begin moving the current selection. Records each element's starting transform
+ * so movement can be applied as an absolute delta from the press point
+ * (editorState.startPoint, in SVG coords).
+ */
+function beginSelectionMove() {
+    editorState.isMovingSelection = true;
+    editorState.moveOccurred = false;
+    editorState.selectedElements.forEach(element => {
+        element.data('origTransform', element.transform().local);
+    });
+}
+
+/**
+ * Move every selected element to follow the pointer. The delta is computed in
+ * SVG user coordinates, so shapes track the cursor exactly at any canvas scale.
+ * @param {Object} point - Current pointer position {x, y} in SVG coordinates
+ */
+function updateSelectionMove(point) {
+    const dx = point.x - editorState.startPoint.x;
+    const dy = point.y - editorState.startPoint.y;
+    if (dx !== 0 || dy !== 0) {
+        editorState.moveOccurred = true;
+    }
+
+    editorState.selectedElements.forEach(element => {
+        const origTransform = element.data('origTransform') || '';
+        element.attr({
+            transform: origTransform + (origTransform ? 'T' : 't') + dx + ',' + dy
+        });
+
+        const selectionBox = element.data('selectionBox');
+        if (selectionBox) {
+            updateSelectionBoxPosition(element, selectionBox);
+        }
+    });
+}
+
+/**
+ * Finish moving the current selection.
+ */
+function endSelectionMove() {
+    editorState.isMovingSelection = false;
+    if (editorState.moveOccurred) {
+        updateStatus(`Moved ${editorState.selectedElements.length} element(s)`);
+        // The gesture ends with a synthetic click; don't let it clear the selection.
+        editorState.suppressNextCanvasClick = true;
+    }
+}
+
+/**
  * Deselect all currently selected elements
  */
 function deselectElement() {
@@ -229,71 +334,18 @@ function highlightSelected(element) {
 }
 
 /**
- * Make an element draggable
- * @param {Snap.Element} element - The element to make draggable
+ * Register a shape for selection: store its baseline opacity and add hover
+ * feedback. Selection, dragging and deletion are all driven from the canvas
+ * mouse handlers in app.js (see beginSelectionMove / updateSelectionMove), so
+ * shapes no longer carry their own Snap .drag()/.click() handlers — that lets
+ * a whole multi-selection move together and keeps movement in SVG user
+ * coordinates (so the shape tracks the cursor regardless of canvas scaling).
+ * @param {Snap.Element} element - The element to register
  */
 function makeElementDraggable(element) {
     // Store the original opacity for this element
     const currentOpacity = element.attr('opacity');
     element.data('originalOpacity', currentOpacity !== undefined ? currentOpacity : 1.0);
-
-    // Enable drag functionality using Snap.svg .drag() method
-    element.drag(
-        // Move handler - called during drag
-        function(dx, dy, x, y, event) {
-            // Only drag if select tool is active and element is selected
-            if (editorState.activeTool !== 'select' || editorState.selectedElement !== this) {
-                return;
-            }
-
-            // Use the standard Snap.svg transform pattern
-            // Concatenate original transform with new translation
-            var origTransform = this.data('origTransform') || '';
-            this.attr({
-                transform: origTransform + (origTransform ? "T" : "t") + dx + "," + dy
-            });
-
-            // Update selection box position based on element's new visual position
-            const selectionBox = this.data('selectionBox');
-            if (selectionBox) {
-                updateSelectionBoxPosition(this, selectionBox);
-            }
-        },
-
-        // Start handler - called when drag starts
-        function(x, y, event) {
-            // Only start drag if select tool is active
-            if (editorState.activeTool !== 'select') {
-                return;
-            }
-
-            // Select element if not already selected (enables drag-on-click)
-            if (editorState.selectedElement !== this) {
-                selectElement(this);
-            }
-
-            // Store the original transform as a STRING (not matrix)
-            // This is the correct Snap.svg pattern
-            this.data('origTransform', this.transform().local);
-        },
-
-        // End handler - called when drag ends
-        function(event) {
-            // Drag complete
-            if (editorState.selectedElement === this) {
-                updateStatus('Element moved');
-            }
-        }
-    );
-
-    // Make element clickable for selection.
-    // (Deletion is handled by the press-and-sweep gesture in app.js, not here.)
-    element.click(function(event) {
-        if (editorState.activeTool === 'select') {
-            event.stopPropagation();
-            selectElement(this);
-        }
-    });
 
     // Add hover effect for select tool
     element.hover(
