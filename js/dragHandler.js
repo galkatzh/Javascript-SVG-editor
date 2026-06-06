@@ -292,6 +292,7 @@ function endSelectionMove() {
         updateStatus(`Moved ${editorState.selectedElements.length} element(s)`);
         // The gesture ends with a synthetic click; don't let it clear the selection.
         editorState.suppressNextCanvasClick = true;
+        recordHistory();
     }
 }
 
@@ -424,6 +425,7 @@ function deleteElement(element) {
     element.remove();
     refreshPropertiesPanel();
     updateStatus('Element deleted');
+    recordHistory();
 }
 
 /**
@@ -499,6 +501,9 @@ function commitDeletion() {
     editorState.deleteSet.clear();
     refreshPropertiesPanel();
     updateStatus(count > 0 ? `Deleted ${count} element(s)` : 'Nothing deleted');
+    if (count > 0) {
+        recordHistory();
+    }
 }
 
 /**

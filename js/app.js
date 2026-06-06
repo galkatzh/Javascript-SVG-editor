@@ -63,6 +63,9 @@ function init() {
         setupCanvas();
         setupWindowEvents();
 
+        // Wire up undo/redo and capture the empty baseline state
+        setupHistory();
+
         // Update status
         updateStatus('Ready - Select a tool to start drawing');
 
@@ -314,7 +317,10 @@ function setupToolbar() {
     const colorPicker = document.getElementById('stroke-color');
     colorPicker.addEventListener('change', (e) => {
         editorState.strokeColor = e.target.value;
-        if (applyToSelection({ stroke: e.target.value }, 'Stroke color')) return;
+        if (applyToSelection({ stroke: e.target.value }, 'Stroke color')) {
+            recordHistory();
+            return;
+        }
         updateStatus(`Stroke color changed to ${e.target.value}`);
     });
 
@@ -328,6 +334,11 @@ function setupToolbar() {
         if (applyToSelection({ strokeWidth: value }, 'Stroke width')) return;
         updateStatus(`Line width changed to ${value}px`);
     });
+    // Record one history step per slider adjustment (on release), not per tick,
+    // and only when a selection was actually being edited.
+    widthSlider.addEventListener('change', () => {
+        if (editorState.selectedElements.length > 0) recordHistory();
+    });
 
     // Shape opacity slider
     const opacitySlider = document.getElementById('shape-opacity');
@@ -338,6 +349,9 @@ function setupToolbar() {
         opacityValueDisplay.textContent = percent;
         if (applyOpacityToSelection(percent / 100)) return;
         updateStatus(`Opacity set to ${percent}%`);
+    });
+    opacitySlider.addEventListener('change', () => {
+        if (editorState.selectedElements.length > 0) recordHistory();
     });
 
     // Setup expandable sliders
@@ -355,7 +369,10 @@ function setupToolbar() {
             document.getElementById('fill-transparent').checked = false;
             fillColorWrap.classList.remove('disabled');
         }
-        if (applyToSelection({ fill: e.target.value }, 'Fill color')) return;
+        if (applyToSelection({ fill: e.target.value }, 'Fill color')) {
+            recordHistory();
+            return;
+        }
         updateStatus(`Fill color changed to ${e.target.value}`);
     });
 
@@ -365,7 +382,10 @@ function setupToolbar() {
         editorState.fillTransparent = e.target.checked;
         updateFillColorState();
         const fill = e.target.checked ? 'none' : editorState.fillColor;
-        if (applyToSelection({ fill: fill }, 'Fill')) return;
+        if (applyToSelection({ fill: fill }, 'Fill')) {
+            recordHistory();
+            return;
+        }
         if (e.target.checked) {
             updateStatus('Fill set to transparent');
         } else {
@@ -710,6 +730,9 @@ function handleMouseUp(e) {
 
     updateStatus(`${tool.charAt(0).toUpperCase() + tool.slice(1)} created`);
 
+    // Record the new shape in the undo history
+    recordHistory();
+
     // Reset drawing state
     editorState.isDrawing = false;
     editorState.currentShape = null;
@@ -746,6 +769,7 @@ function handleFileImport(e) {
             // Success callback
             updateStatus(`Successfully imported ${count} element(s) from ${file.name}`);
             console.log(`Imported ${count} elements`);
+            recordHistory();
         },
         (errorMessage) => {
             // Error callback
@@ -784,12 +808,13 @@ async function handleFileExport() {
  * Handle clear canvas
  */
 function handleClearCanvas() {
-    if (confirm('Are you sure you want to clear the canvas? This cannot be undone.')) {
+    if (confirm('Are you sure you want to clear the canvas?')) {
         snap.clear();
         editorState.selectedElement = null;
         editorState.selectedElements = [];
         syncPropertiesPanel();
         updateStatus('Canvas cleared');
+        recordHistory();
     }
 }
 
@@ -826,6 +851,17 @@ function selectToolByName(toolName) {
 function handleKeyDown(e) {
     // Don't trigger shortcuts when typing in input fields
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+        return;
+    }
+
+    // Undo (Ctrl/Cmd+Z) and Redo (Ctrl/Cmd+Shift+Z)
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && e.key.toLowerCase() === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+            redo();
+        } else {
+            undo();
+        }
         return;
     }
 
@@ -920,6 +956,7 @@ function deleteSelected() {
     editorState.selectedElement = null;
     syncPropertiesPanel();
     updateStatus(`Deleted ${toDelete.length} element(s)`);
+    recordHistory();
 }
 
 /**

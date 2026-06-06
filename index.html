@@ -145,6 +145,22 @@
             </button>
         </div>
 
+        <!-- Floating History Panel (Top Center) -->
+        <div id="history-panel" class="floating-panel">
+            <button id="undo-btn" class="action-btn" title="Undo (Ctrl+Z)" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M9 14L4 9l5-5"/>
+                    <path d="M4 9h11a5 5 0 0 1 5 5 5 5 0 0 1-5 5H9"/>
+                </svg>
+            </button>
+            <button id="redo-btn" class="action-btn" title="Redo (Ctrl+Shift+Z)" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M15 14l5-5-5-5"/>
+                    <path d="M20 9H9a5 5 0 0 0-5 5 5 5 0 0 0 5 5h6"/>
+                </svg>
+            </button>
+        </div>
+
         <!-- Canvas Size Controls (Top Left) -->
         <div id="canvas-panel" class="floating-panel">
             <div class="canvas-size-group" title="Canvas Size">
@@ -169,6 +185,7 @@
     <script src="js/shapes.js"></script>
     <script src="js/dragHandler.js"></script>
     <script src="js/fileHandler.js"></script>
+    <script src="js/history.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>
