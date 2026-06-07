@@ -761,7 +761,9 @@ function handleFileImport(e) {
     console.log('Importing file:', file.name);
     updateStatus(`Importing ${file.name}...`);
 
-    // Use fileHandler module to import SVG
+    // Use fileHandler module to import SVG. Each imported shape is recorded as
+    // its own history step (in creation order) via the per-element callback, so
+    // undo peels imported shapes back one at a time.
     importSVG(
         file,
         snap,
@@ -769,13 +771,16 @@ function handleFileImport(e) {
             // Success callback
             updateStatus(`Successfully imported ${count} element(s) from ${file.name}`);
             console.log(`Imported ${count} elements`);
-            recordHistory();
         },
         (errorMessage) => {
             // Error callback
             updateStatus(`Import failed: ${errorMessage}`);
             console.error('Import error:', errorMessage);
             alert(`Import failed: ${errorMessage}`);
+        },
+        () => {
+            // Per-element callback: record one history step per imported shape
+            recordHistory();
         }
     );
 
