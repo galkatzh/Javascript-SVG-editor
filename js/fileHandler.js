@@ -9,8 +9,10 @@
  * @param {Snap} snapInstance - The Snap.svg instance
  * @param {Function} onSuccess - Success callback
  * @param {Function} onError - Error callback
+ * @param {Function} [onElementAdded] - Called after each shape is added, in
+ *   creation order (lets callers record per-shape history)
  */
-function importSVG(file, snapInstance, onSuccess, onError) {
+function importSVG(file, snapInstance, onSuccess, onError, onElementAdded) {
     // Validate file type
     if (!file.name.endsWith('.svg') && file.type !== 'image/svg+xml') {
         if (onError) {
@@ -27,7 +29,7 @@ function importSVG(file, snapInstance, onSuccess, onError) {
             const svgContent = e.target.result;
 
             // Parse the SVG content
-            parseSVGContent(svgContent, snapInstance, onSuccess, onError);
+            parseSVGContent(svgContent, snapInstance, onSuccess, onError, onElementAdded);
 
         } catch (error) {
             console.error('Error reading SVG file:', error);
@@ -54,8 +56,10 @@ function importSVG(file, snapInstance, onSuccess, onError) {
  * @param {Snap} snapInstance - The Snap.svg instance
  * @param {Function} onSuccess - Success callback
  * @param {Function} onError - Error callback
+ * @param {Function} [onElementAdded] - Called after each shape is added, in
+ *   creation order (lets callers record per-shape history)
  */
-function parseSVGContent(svgContent, snapInstance, onSuccess, onError) {
+function parseSVGContent(svgContent, snapInstance, onSuccess, onError, onElementAdded) {
     try {
         // Create a temporary container to parse the SVG
         const parser = new DOMParser();
@@ -102,6 +106,12 @@ function parseSVGContent(svgContent, snapInstance, onSuccess, onError) {
                 snapElement.data('imported', true);
 
                 importedCount++;
+
+                // Record this shape as its own history step, so the import's
+                // creation order is preserved in the undo/redo timeline.
+                if (onElementAdded) {
+                    onElementAdded(snapElement);
+                }
             } catch (err) {
                 console.warn('Could not import element:', element, err);
             }

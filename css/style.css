@@ -501,6 +501,34 @@ body {
     color: var(--danger);
 }
 
+/* History Panel (Top Center) */
+#history-panel {
+    /* Centered horizontally without a transform, so the panel's fadeIn
+       (which animates transform) doesn't disturb its position. */
+    left: 0;
+    right: 0;
+    top: 20px;
+    margin: 0 auto;
+    width: fit-content;
+    display: flex;
+    gap: 4px;
+}
+
+/* History panel tooltips sit below the buttons (top-center has room there). */
+#history-panel .action-btn::after {
+    left: 50%;
+    right: auto;
+    top: calc(100% + 8px);
+    transform: translateX(-50%);
+}
+
+/* Disabled action buttons (e.g. undo/redo with nothing to undo). */
+.action-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+    pointer-events: none;
+}
+
 /* Canvas Size Panel (Top Left) */
 #canvas-panel {
     left: 80px;
